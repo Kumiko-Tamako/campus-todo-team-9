@@ -27,3 +27,7 @@ jobs:
 
       - name: Test
         run: pytest -m "not integration"
+
+      # 契约防漂移：API 变更后必须重跑 scripts/export_openapi.py 同步 openapi.json
+      - name: OpenAPI contract drift check
+        run: python scripts/export_openapi.py --check

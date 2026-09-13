@@ -22,7 +22,7 @@ def create_app() -> FastAPI:
     application.include_router(auth_router)
     application.include_router(qa_router)
 
-    @application.get("/health")
+    @application.get("/health", tags=["ops"])
     def health() -> dict[str, str]:
         return {"status": "ok"}
 

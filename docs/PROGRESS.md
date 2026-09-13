@@ -8,7 +8,7 @@
 |:---|:---|:---|:---|:---|
 | 阶段 0 | W1–W2 | 工程重启 | **完成** | 本地门禁全绿；GitHub Actions 变绿 |
 | 阶段 1 | W3–W5 | Sprint 1 文档 | 进行中（1.1–1.4 产出完成） | 覆盖 Lab 2+3 全部提交物 |
-| 阶段 2 | W7–W9 | Walking Skeleton | **进行中**（2.1–2.6 完成；2.1–2.4 已 merge，2.5/2.6 在 `feat/listing` 待 PR #4） | 注册→登录→提问→列表→详情已端到端贯通；覆盖率 ≥70% |
+| 阶段 2 | W7–W9 | Walking Skeleton | **完成**（2.1–2.8 全部交付并 merge：注册→登录→提问→列表→详情端到端贯通 + openapi.json 契约交前端） | 注册→登录→提问→列表→详情端到端贯通；契约交付；覆盖率 ≥70%（阶段 3 冲刺） |
 | 阶段 3 | W11–W13 | 核心特性 | 未开始 | 覆盖率 70%+；契约测试；4 次 PR 评审记录 |
 | 阶段 4 | W15 | 上线 | 未开始 | 线上 URL 可访问；Lab 8 提交物齐备 |
 
@@ -43,10 +43,10 @@
 | 2.2 | 登录：`POST /api/v1/auth/login`，JWT Access 15min + Refresh 7d 存 Redis（GETDEL 原子轮换、可吊销） | **完成**（PR #2 已 merge） |
 | 2.3 | 认证依赖：`get_current_user` + `require_roles` RBAC（`GET /api/v1/auth/me` 受保护示例） | **完成**（随 2.2 一并交付；台账 `docs/test/2.2-login.md`，67 测试全绿） |
 | 2.4 | 提问：Question 聚合 + `POST /api/v1/questions` | **完成**（`feat/questions` 分支待提 PR #3；台账 `docs/test/2.4-question.md`，132 测试全绿，暴力测试前三路 15/15 + 第四路 20/20 PASS，第四路发现的 3 类 500 缺陷已修复） |
-| 2.5 | 列表：`GET /api/v1/questions`（分页，默认按最新排序；投票排序迭代 2 再做） | **完成**（`feat/listing` 分支待提 PR #4；台账 `docs/test/2.5-listing.md`，149 测试全绿，暴力测试 S-01~S-14 **14/14 PASS**） |
-| 2.6 | 详情：`GET /api/v1/questions/{id}`（标签/答案区迭代 1 恒为空列表，404 不泄露信息） | **完成**（随 2.5 一并交付；tiebreaker 全序 + 访客可用 + 404 不泄露） |
+| 2.5 | 列表：`GET /api/v1/questions`（分页，默认按最新排序；投票排序迭代 2 再做） | **完成**（已 merge **PR #10**；台账 `docs/test/2.5-listing.md`，149 测试全绿，七路暴力测试 74 例全 PASS） |
+| 2.6 | 详情：`GET /api/v1/questions/{id}`（标签/答案区迭代 1 恒为空列表，404 不泄露信息） | **完成**（随 2.5 一并交付，PR #10；tiebreaker 全序 + 访客可用 + 404 不泄露） |
 | 2.7 | 迁移纪律：`alembic revision --autogenerate` → 人工审核脚本才 `upgrade` | 2.1 已执行一次（`ab3c0dd6dd38`，含 roles 种子） |
-| 2.8 | 契约交付：`openapi.json` 交前端队友 | 未开始 |
+| 2.8 | 契约交付：`openapi.json` 交前端队友 | **完成**（`chore/openapi-export` 分支待提 PR #11：导出脚本 + CI 防漂移门禁 + 契约说明；台账 `docs/test/2.8-openapi.md`，契约暴力测试 C 系列 **15/15 PASS**） |
 
 ## 变更记录
 
@@ -65,6 +65,10 @@
 | 2026-09-12 | `docs/test/2.5-listing.md`：补记**第五路独立测试 23/23 PASS，0 缺陷**（新维度：查询参数类型混淆 / `page=1e21` offset 溢出走修3兜底 400 / UUID 宽容变体全 200 / 方法探测 405 / GET 带 2MB body 413 / API total 与 psql COUNT 222=222 对账 / 重复参数取末值；3 个非缺陷观察点；执行前独立复核门禁 149/0/62 与汇报一致）；同日登记交叉补测**方案外 P 系列 11/11 PASS**（并发 tiebreaker 全量翻页 0 重复 0 漏帖 / 注入变体 / 白名单深查，独立模型补写本台账后由本模型除重编号为第九节）；同日 2.5/2.6 经双模型评审"检查都没问题" |
 | 2026-09-12 | `docs/test/2.5-listing.md`：补记**第六路传输层与协议面 16/16 PASS，0 缺陷**（T-01~T-14：HTTP/1.0 裸请求 / CRLF 注入响应头零注入 / Range・条件头・内容协商恒 200 / 参数大小写与分号分隔 / **全表 222 条逐页全扫零重复零漏项**（tiebreaker 最强实证）/ 深 offset p95≈80ms（阶段 4 容量基线）/ %00 路径 / Method-Override 忽略 / 读写并发 15 读全自洽；观察点：h11 对缺 Host 头宽容非 400）；六路累计 **64 例攻击全 PASS**，2.5/2.6 定性可交付 |
 | 2026-09-12 | `docs/test/2.5-listing.md`：独立模型补记**第七路 X 系列 10/10 PASS，0 FAIL**（混合并发压力 / URL 编码变体 / HEAD・OPTIONS・CORS 预检 / 存储型回显 `<script>`・emoji・控制字符 / 分页数学 / 多用户 author_id 隔离 / **200 并发 GET 200×200** / 畸形头）；观察点：① HEAD 未注册 405（当前 FastAPI/Starlette 行为，阶段 4 Nginx 规范化）② 测试中途 PG 容器停止暴露**依赖停机裸 500**（asyncpg 连接异常不在 400 兜底内，建议阶段 4 前补统一兜底）③ 200 并发未触 PG 连接上限；本行为该模型台账改动的 PROGRESS 补登记；**七路累计 74 例攻击全 PASS** |
+| 2026-09-13 | **2.8 契约交付完成**（`chore/openapi-export` 分支，PR #11）：新增 `scripts/export_openapi.py`（`create_app().openapi()` 导出仓库根 `openapi.json`；`--check` 内存比对门禁，**CRLF 归一化**消除 Windows autocrlf 假阳性；`newline="\n"` 防重导出全文件 diff）、`openapi.json`（**8 paths / 9 operations**）、`docs/api/api-contract-notes.md`（extra=forbid / 前端转义两约定 + 错误形态速查含 schema 外 401/400/413/405 + 分页契约 + /docs 入口 + openapi-typescript 消费指引 + app_name 提醒）、ci.yml pytest 后加 `--check` 防漂移门禁（带注释）；契约暴力测试 C 系列 **15/15 PASS**（schema↔真实 API 逐端点/逐字段一致、漂移注入 exit 1、CRLF 场景 exit 0、导出幂等、/docs 与 /openapi.json 同源）；台账 [2.8-openapi.md](test/2.8-openapi.md)；**阶段 2（Walking Skeleton）就此收口** |
+| 2026-09-13 | `docs/PROGRESS.md`：2.5/2.6 行勘正（"待提 PR #4"→**已 merge PR #10**）、阶段 2 里程碑标记**完成** |
+| 2026-09-13 | `docs/api/api-contract-notes.md`：422 行补"schema 声明的 `input`/`ctx` 为内置模型残留、实际永不含"（第六路契约测试发现：契约比现实宽松）；`scripts/export_openapi.py`：`--check` 补缺文件友好报错（第七路 D-01，exit 1 语义不变）；台账 2.8-openapi.md 补记第七路（前端消费视角 11 PASS + 2 项确认：securitySchemes/additionalProperties 进契约）；**2.8 七路累计 49 例 0 FAIL** |
+| 2026-09-13 | 第八路契约测试（结构合法性 + CI 预演）9 PASS：operationId 唯一、无 BOM/重复键、路径参数声明、204 无 content、ci.yml YAML 合法、导出幂等；唯一发现 **K-06 `/health` 无 tags → 已修复**（[app/main.py](app/main.py) 加 `tags=["ops"]` 1 行 + 重跑导出同步契约 + 门禁复跑全绿）；台账 2.8-openapi.md 补记第七节；**2.8 八路累计 59 例 0 真 FAIL，PR #11 定稿可提** |
 
 ## 相关决策
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.shared.text_validation import reject_unsafe_text
+
 _STUDENT_ID_PATTERN = re.compile(r"^\d{8,12}$")
 _STAFF_ID_PATTERN = re.compile(r"^T\d{4,8}$")
 _EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -15,6 +17,7 @@ class StudentId:
     value: str
 
     def __post_init__(self) -> None:
+        reject_unsafe_text(self.value, field_name="学号")
         if not _STUDENT_ID_PATTERN.match(self.value):
             raise ValueError(f"学号格式不合法：{self.value!r}（应为 8~12 位数字）")
 
@@ -26,6 +29,7 @@ class StaffId:
     value: str
 
     def __post_init__(self) -> None:
+        reject_unsafe_text(self.value, field_name="工号")
         if not _STAFF_ID_PATTERN.match(self.value):
             raise ValueError(f"工号格式不合法：{self.value!r}（应为 T+4~8 位数字）")
 
@@ -37,6 +41,7 @@ class Email:
     value: str
 
     def __post_init__(self) -> None:
+        reject_unsafe_text(self.value, field_name="邮箱")
         if not _EMAIL_PATTERN.match(self.value):
             raise ValueError(f"邮箱格式不合法：{self.value!r}")
 

@@ -40,6 +40,18 @@ class TestValueObjects:
         with pytest.raises(ValueError, match="邮箱"):
             Email("not-an-email")
 
+    def test_email_with_nul_rejected(self) -> None:
+        with pytest.raises(ValueError, match="控制字符"):
+            Email("n\x00x@stu.edu.cn")
+
+    def test_email_with_lone_surrogate_rejected(self) -> None:
+        with pytest.raises(ValueError, match="代理字符"):
+            Email("\ud800@x.cn")
+
+    def test_student_id_with_nul_rejected(self) -> None:
+        with pytest.raises(ValueError, match="控制字符"):
+            StudentId("123\x00456")
+
     def test_password_hash_rejects_plaintext(self) -> None:
         with pytest.raises(ValueError, match="bcrypt"):
             PasswordHash("PlainPassword1")

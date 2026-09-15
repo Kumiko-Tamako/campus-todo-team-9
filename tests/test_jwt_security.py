@@ -86,10 +86,27 @@ def test_alg_none_token_rejected() -> None:
 
 
 def test_tampered_signature_rejected() -> None:
-    """L-08：篡改令牌任意字符后签名校验失败。"""
+    """L-08：篡改签名中段字符后签名校验失败。
+
+    不碰末字符：HS256 签名 32 字节 → 43 字符 base64url，末字符低 2 bit 是
+    base64 填充位（解码时被丢弃），原字符为 'U' 时替换为 'X' 会解码出完全
+    相同的字节（'U'=20、'X'=23 高 4 位同为 0101），签名校验照样通过，
+    造成约 1/16 概率的假绿/假红 flaky。签名前 40 字符的 6 bit 全部承载数据，
+    篡改中段任意一个字符必然改变解码字节 → 确定性拒绝。
+    """
     user = _user()
     token = service.issue_access(user)
-    tampered = token[:-1] + ("X" if token[-1] != "X" else "Y")
+    header_payload, sep, signature = token.rpartition(".")
+    middle = len(signature) // 2
+    replacement = "A" if signature[middle] != "A" else "B"
+    tampered_sig = f"{signature[:middle]}{replacement}{signature[middle + 1 :]}"
+    tampered = f"{header_payload}{sep}{tampered_sig}"
+    # 确定性证据（非概率性回归仪式）：中段 6 bit 全部承载数据，
+    # 篡改后解码字节必与原签名不同——此断言失败即说明篡改落在了填充位
+    pad = "=" * (-len(signature) % 4)
+    assert base64.urlsafe_b64decode(
+        signature + pad
+    ) != base64.urlsafe_b64decode(tampered_sig + pad)
     assert service.verify_access(tampered) is None
 
 

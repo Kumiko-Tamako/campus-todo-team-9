@@ -1,0 +1,789 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CampusOverflow",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "注册（学生/教师分流）",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "登录（学号/工号 + 密码 → JWT 双令牌）",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPairResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "刷新令牌（轮换：旧 Refresh 原子消耗，签发新对）",
+        "operationId": "refresh_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPairResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "退出登录（吊销 Refresh 令牌，幂等 204）",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "当前用户信息（受保护：需 Bearer Access 令牌）",
+        "operationId": "me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/questions": {
+      "post": {
+        "tags": [
+          "questions"
+        ],
+        "summary": "发布问题（登录用户）",
+        "operationId": "ask_question_api_v1_questions_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskQuestionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "questions"
+        ],
+        "summary": "问题列表（访客可用，按发布时间新→旧）",
+        "operationId": "list_questions_api_v1_questions_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "页码，从 1 起",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "页码，从 1 起"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "每页条数，上限 100（S-05）",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "每页条数，上限 100（S-05）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/questions/{question_id}": {
+      "get": {
+        "tags": [
+          "questions"
+        ],
+        "summary": "问题详情（访客可用）",
+        "operationId": "get_question_api_v1_questions__question_id__get",
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "ops"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AskQuestionRequest": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Body"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "body"
+        ],
+        "title": "AskQuestionRequest",
+        "description": "POST /api/v1/questions 请求体。\n\nstr_strip_whitespace 在长度约束之前生效：纯空白标题/正文 strip 后为空 → 422。"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LoginRequest": {
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Identifier"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "identifier",
+          "password"
+        ],
+        "title": "LoginRequest",
+        "description": "POST /api/v1/auth/login 请求体：identifier 为学号或工号。"
+      },
+      "QuestionDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "author_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Author Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "answers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Answers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "body",
+          "author_id",
+          "created_at"
+        ],
+        "title": "QuestionDetailResponse",
+        "description": "详情白名单。\n\ntags/answers 迭代 1 恒为空列表（答案/标签功能阶段 3 就位；\nanswers 元素结构届时定稿，当前仅占位）。"
+      },
+      "QuestionListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "author_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Author Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "author_id",
+          "created_at"
+        ],
+        "title": "QuestionListItem",
+        "description": "列表条目白名单：不含正文（正文最长 5000 字，列表页不需要）与任何内部字段（S-12）。"
+      },
+      "QuestionListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "total_pages": {
+            "type": "integer",
+            "title": "Total Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "total_pages"
+        ],
+        "title": "QuestionListResponse",
+        "description": "分页契约：total_pages = ceil(total/page_size)，空库为 0。"
+      },
+      "QuestionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "author_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Author Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "body",
+          "author_id",
+          "created_at"
+        ],
+        "title": "QuestionResponse",
+        "description": "问题响应白名单：不含任何内部字段。"
+      },
+      "RefreshRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Refresh Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshRequest",
+        "description": "POST /api/v1/auth/refresh 与 /logout 请求体。"
+      },
+      "RegisterRequest": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "student",
+              "teacher"
+            ],
+            "title": "Role"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "staff_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "role",
+          "email",
+          "password"
+        ],
+        "title": "RegisterRequest",
+        "description": "POST /api/v1/auth/register 请求体。"
+      },
+      "RegisterResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "student_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Student Id"
+          },
+          "staff_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staff Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "email",
+          "student_id",
+          "staff_id",
+          "created_at"
+        ],
+        "title": "RegisterResponse",
+        "description": "注册响应：绝不包含密码任何形态。"
+      },
+      "TokenPairResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "expires_in"
+        ],
+        "title": "TokenPairResponse",
+        "description": "登录/刷新成功返回的令牌对。"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

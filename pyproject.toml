@@ -8,6 +8,7 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.ruff.lint.per-file-ignores]
 # FastAPI 标准模式：Depends 作为路由参数默认值
 "app/contexts/identity/interfaces/api/**" = ["B008"]
+"app/contexts/qa/interfaces/api/**" = ["B008"]
 
 [tool.mypy]
 strict = true

@@ -118,6 +118,14 @@ async def test_unknown_identifier_returns_401(client: httpx.AsyncClient) -> None
     assert resp.status_code == 401
 
 
+async def test_sqli_identifier_returns_401(client: httpx.AsyncClient) -> None:
+    """L-05 守护：SQL 注入串不含控制字符，穿透字符校验后由用例判 401（不被 422 误杀、不 500）。"""
+    resp = await client.post(
+        "/api/v1/auth/login", json={"identifier": "' OR '1'='1", "password": "x"}
+    )
+    assert resp.status_code == 401
+
+
 async def test_me_without_token_returns_401(client: httpx.AsyncClient) -> None:
     resp = await client.get("/api/v1/auth/me")
     assert resp.status_code == 401

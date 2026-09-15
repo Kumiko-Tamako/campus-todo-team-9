@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -42,3 +43,8 @@ def require_roles(*roles: Role) -> Callable[..., Awaitable[User]]:
         return user
 
     return _checker
+
+
+# 公开供给面：下游上下文（如 qa）只经此别名消费当前用户，
+# 不直接 import identity.domain（context-map 边界规则 4 的 interfaces 层例外）
+CurrentUser = Annotated[User, Depends(get_current_user)]

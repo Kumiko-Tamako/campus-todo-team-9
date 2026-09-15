@@ -4,7 +4,9 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.shared.text_validation import reject_unsafe_text
 
 
 class RegisterRequest(BaseModel):
@@ -17,6 +19,15 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
     student_id: str | None = Field(default=None, max_length=32)
     staff_id: str | None = Field(default=None, max_length=32)
+
+    @field_validator("email", "student_id", "staff_id")
+    @classmethod
+    def _reject_unsafe_chars(cls, value: str | None) -> str | None:
+        # 注册用例先查重（SQL 参数）再构造值对象，NUL/代理字符必须在边界拦截，
+        # 否则 asyncpg 报 CharacterNotInRepertoireError → 500
+        if value is not None:
+            reject_unsafe_text(value, field_name="注册信息")
+        return value
 
     @model_validator(mode="after")
     def _identity_matches_role(self) -> RegisterRequest:
@@ -45,6 +56,13 @@ class LoginRequest(BaseModel):
 
     identifier: str = Field(min_length=1, max_length=32)
     password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("identifier", "password")
+    @classmethod
+    def _reject_unsafe_chars(cls, value: str) -> str:
+        # 只拒控制字符/代理字符，不碰格式：SQL 注入串等仍透传到用例返回 401
+        reject_unsafe_text(value, field_name="登录信息")
+        return value
 
 
 class RefreshRequest(BaseModel):

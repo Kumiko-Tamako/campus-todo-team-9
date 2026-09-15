@@ -1,7 +1,10 @@
 import { LockOutlined, LoginOutlined, UserOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Form, Input, Typography } from 'antd'
+import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
+import { authApi } from '../api/auth'
+import { getApiErrorMessage } from '../api/errors'
 
 type LoginValues = {
   identifier: string
@@ -11,12 +14,35 @@ type LoginValues = {
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const login = useAuthStore((state) => state.login)
+  const setTokens = useAuthStore((state) => state.setTokens)
+  const setUser = useAuthStore((state) => state.setUser)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const from = (location.state as { from?: string } | null)?.from ?? '/questions'
 
-  const onFinish = (values: LoginValues) => {
-    login({ identifier: values.identifier, displayName: values.identifier, role: 'student' })
-    navigate(from, { replace: true })
+  const onFinish = async (values: LoginValues) => {
+    setErrorMessage(null)
+    setIsSubmitting(true)
+    try {
+      const tokens = await authApi.login(values)
+      setTokens(tokens)
+      const user = await authApi.me()
+      setUser({
+        id: user.id,
+        email: user.email,
+        studentId: user.student_id,
+        staffId: user.staff_id,
+        createdAt: user.created_at,
+        displayName: user.student_id ?? user.staff_id ?? user.email,
+        role: user.role,
+      })
+      navigate(from, { replace: true })
+    } catch (error) {
+      useAuthStore.getState().logout()
+      setErrorMessage(getApiErrorMessage(error, '登录失败，请检查账号和密码'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -27,7 +53,14 @@ export function LoginPage() {
           <Typography.Title level={2}>欢迎回到 CampusOverflow</Typography.Title>
           <Typography.Paragraph type="secondary">登录后参与校园知识交流</Typography.Paragraph>
         </div>
-        <Form<LoginValues> layout="vertical" size="large" onFinish={onFinish} requiredMark={false}>
+        {errorMessage ? <Alert className="demo-alert" message={errorMessage} type="error" showIcon /> : null}
+        <Form<LoginValues>
+          layout="vertical"
+          size="large"
+          onFinish={onFinish}
+          requiredMark={false}
+          onFinishFailed={() => undefined}
+        >
           <Form.Item
             label="学号 / 工号"
             name="identifier"
@@ -42,8 +75,7 @@ export function LoginPage() {
           >
             <Input.Password prefix={<LockOutlined />} placeholder="请输入密码" autoComplete="current-password" />
           </Form.Item>
-          <Alert className="demo-alert" message="当前为演示模式，输入任意符合格式的账号密码即可登录" type="info" showIcon />
-          <Button type="primary" htmlType="submit" block icon={<LoginOutlined />}>
+          <Button type="primary" htmlType="submit" block icon={<LoginOutlined />} loading={isSubmitting}>
             登录
           </Button>
         </Form>

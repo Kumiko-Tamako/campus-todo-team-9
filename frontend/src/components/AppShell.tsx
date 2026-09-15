@@ -3,13 +3,14 @@ import { Button, Layout, Menu, Space, Tag, Typography } from 'antd'
 import type { MenuProps } from 'antd'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
+import { authApi } from '../api/auth'
 
 const { Header, Content, Footer } = Layout
 
 export function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuthStore()
+  const { user, refreshToken, logout } = useAuthStore()
 
   const menuItems: MenuProps['items'] = [
     { key: '/questions', icon: <ReadOutlined />, label: <Link to="/questions">问题广场</Link> },
@@ -18,7 +19,14 @@ export function AppShell() {
       : []),
   ]
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    if (refreshToken) {
+      try {
+        await authApi.logout(refreshToken)
+      } catch {
+        // 本地清理仍需执行，退出接口失败不应阻止用户退出。
+      }
+    }
     logout()
     navigate('/questions')
   }

@@ -1,10 +1,13 @@
 import { LockOutlined, UserAddOutlined, UserOutlined } from '@ant-design/icons'
 import { Alert, Button, Card, Form, Input, Radio, Typography } from 'antd'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuthStore } from '../stores/authStore'
+import { useState } from 'react'
+import { authApi } from '../api/auth'
+import { getApiErrorMessage } from '../api/errors'
 
 type RegisterValues = {
-  identifier: string
+  student_id?: string
+  staff_id?: string
   email: string
   password: string
   role: 'student' | 'teacher'
@@ -12,11 +15,25 @@ type RegisterValues = {
 
 export function RegisterPage() {
   const navigate = useNavigate()
-  const login = useAuthStore((state) => state.login)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const onFinish = (values: RegisterValues) => {
-    login({ identifier: values.identifier, displayName: values.identifier, role: values.role })
-    navigate('/questions', { replace: true })
+  const onFinish = async (values: RegisterValues) => {
+    setErrorMessage(null)
+    setIsSubmitting(true)
+    try {
+      await authApi.register({
+        role: values.role,
+        email: values.email,
+        password: values.password,
+        ...(values.role === 'student' ? { student_id: values.student_id } : { staff_id: values.staff_id }),
+      })
+      navigate('/login', { replace: true, state: { registered: true } })
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, '注册失败，请检查填写的信息'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -27,6 +44,7 @@ export function RegisterPage() {
           <Typography.Title level={2}>创建你的账号</Typography.Title>
           <Typography.Paragraph type="secondary">加入 CampusOverflow，分享和发现答案</Typography.Paragraph>
         </div>
+        {errorMessage ? <Alert className="demo-alert" message={errorMessage} type="error" showIcon /> : null}
         <Form<RegisterValues>
           layout="vertical"
           size="large"
@@ -37,12 +55,16 @@ export function RegisterPage() {
           <Form.Item label="身份" name="role">
             <Radio.Group optionType="button" buttonStyle="solid" options={[{ label: '学生', value: 'student' }, { label: '教师', value: 'teacher' }]} />
           </Form.Item>
-          <Form.Item
-            label="学号 / 工号"
-            name="identifier"
-            rules={[{ required: true, message: '请输入学号或工号' }]}
-          >
-            <Input prefix={<UserOutlined />} placeholder="请输入学号或工号" autoComplete="username" />
+          <Form.Item noStyle shouldUpdate={(prev, current) => prev.role !== current.role}>
+            {({ getFieldValue }) => getFieldValue('role') === 'teacher' ? (
+              <Form.Item label="工号" name="staff_id" rules={[{ required: true, message: '请输入工号' }]}>
+                <Input prefix={<UserOutlined />} placeholder="请输入工号" autoComplete="username" />
+              </Form.Item>
+            ) : (
+              <Form.Item label="学号" name="student_id" rules={[{ required: true, message: '请输入学号' }]}>
+                <Input prefix={<UserOutlined />} placeholder="请输入学号" autoComplete="username" />
+              </Form.Item>
+            )}
           </Form.Item>
           <Form.Item
             label="邮箱"
@@ -58,8 +80,8 @@ export function RegisterPage() {
           >
             <Input.Password prefix={<LockOutlined />} placeholder="至少 8 位字符" autoComplete="new-password" />
           </Form.Item>
-          <Alert className="demo-alert" message="注册成功后会自动进入演示环境" type="info" showIcon />
-          <Button type="primary" htmlType="submit" block icon={<UserAddOutlined />}>
+          <Alert className="demo-alert" message="注册成功后请使用学号或工号登录" type="info" showIcon />
+          <Button type="primary" htmlType="submit" block icon={<UserAddOutlined />} loading={isSubmitting}>
             注册并开始
           </Button>
         </Form>

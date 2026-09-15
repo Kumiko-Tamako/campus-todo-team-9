@@ -8,8 +8,8 @@ import { QuestionsPage } from '../pages/QuestionsPage'
 import { RegisterPage } from '../pages/RegisterPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const token = useAuthStore((state) => state.token)
-  return token ? children : <Navigate to="/login" replace />
+  const accessToken = useAuthStore((state) => state.accessToken)
+  return accessToken ? children : <Navigate to="/login" replace />
 }
 
 export function AppRouter() {

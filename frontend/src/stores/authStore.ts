@@ -34,6 +34,11 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'campus-overflow-auth',
       partialize: ({ accessToken, refreshToken, user }) => ({ accessToken, refreshToken, user }),
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<AuthState>
+        if (!saved.accessToken || !saved.refreshToken) return current
+        return { ...current, ...saved }
+      },
     },
   ),
 )

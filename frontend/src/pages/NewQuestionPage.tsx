@@ -45,7 +45,7 @@ export function NewQuestionPage() {
         {errorMessage ? <Alert message={errorMessage} type="error" showIcon /> : null}
         <Form<NewQuestionValues> layout="vertical" size="large" onFinish={onFinish} requiredMark={false}>
           <Form.Item label="标题" name="title" rules={[{ required: true, min: 8, message: '标题至少需要 8 个字符' }]}>
-            <Input placeholder="例如：如何为 React 项目设计登录状态？" showCount maxLength={120} />
+            <Input placeholder="例如：如何为 React 项目设计登录状态？" showCount maxLength={100} />
           </Form.Item>
           <Form.Item label="问题描述" name="body" rules={[{ required: true, min: 20, message: '请补充至少 20 个字符的描述' }]}>
             <Input.TextArea placeholder="补充背景、已尝试的方法和具体报错..." autoSize={{ minRows: 7, maxRows: 14 }} showCount maxLength={5000} />

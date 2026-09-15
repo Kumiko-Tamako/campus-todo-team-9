@@ -32,5 +32,19 @@ describe('questionsApi', () => {
       body: '问题的详细描述',
     })
   })
-})
 
+  it('normalizes optional detail collections to empty arrays', async () => {
+    apiMocks.get.mockResolvedValue({
+      data: {
+        id: 'question-id',
+        title: '问题标题',
+        body: '问题正文',
+        author_id: 'author-id',
+        created_at: '2026-09-15T00:00:00Z',
+      },
+    })
+
+    await expect(questionsApi.get('question-id')).resolves.toMatchObject({ tags: [], answers: [] })
+    expect(apiMocks.get).toHaveBeenCalledWith('/v1/questions/question-id')
+  })
+})

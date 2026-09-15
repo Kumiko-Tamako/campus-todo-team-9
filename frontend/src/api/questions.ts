@@ -23,6 +23,11 @@ export type QuestionResponse = {
   created_at: string
 }
 
+export type QuestionDetailResponse = QuestionResponse & {
+  tags?: string[]
+  answers?: string[]
+}
+
 export type QuestionDetail = QuestionResponse & {
   tags: string[]
   answers: string[]
@@ -33,10 +38,13 @@ export const questionsApi = {
     return apiClient.get<QuestionListResponse>('/v1/questions', { params }).then(({ data }) => data)
   },
   get(questionId: string) {
-    return apiClient.get<QuestionDetail>(`/v1/questions/${questionId}`).then(({ data }) => data)
+    return apiClient.get<QuestionDetailResponse>(`/v1/questions/${questionId}`).then(({ data }) => ({
+      ...data,
+      tags: data.tags ?? [],
+      answers: data.answers ?? [],
+    }))
   },
   create(payload: { title: string; body: string }) {
     return apiClient.post<QuestionResponse>('/v1/questions', payload).then(({ data }) => data)
   },
 }
-

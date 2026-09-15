@@ -1,23 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
-import { useQuestionStore } from '../stores/questionStore'
+import { questionsApi } from '../api/questions'
 
 export function useQuestions() {
   return useQuery({
     queryKey: ['questions'],
-    queryFn: async () => useQuestionStore.getState().questions,
+    queryFn: () => questionsApi.list(),
   })
 }
 
 export function useQuestion(questionId: string | undefined) {
   return useQuery({
     queryKey: ['questions', questionId],
-    queryFn: async () => {
-      const question = useQuestionStore.getState().questions.find((item) => item.id === questionId)
-      if (!question) {
-        throw new Error('问题不存在')
-      }
-      return question
-    },
+    queryFn: () => questionsApi.get(questionId!),
     enabled: Boolean(questionId),
   })
 }

@@ -50,8 +50,9 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as RetryableRequestConfig | undefined
     const isRefreshRequest = originalRequest?.url?.includes('/auth/refresh')
+    const isPublicAuthRequest = originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/register')
 
-    if (error.response?.status !== 401 || !originalRequest || originalRequest._retry || isRefreshRequest) {
+    if (error.response?.status !== 401 || !originalRequest || originalRequest._retry || isRefreshRequest || isPublicAuthRequest) {
       return Promise.reject(error)
     }
 
@@ -66,4 +67,3 @@ apiClient.interceptors.response.use(
     }
   },
 )
-

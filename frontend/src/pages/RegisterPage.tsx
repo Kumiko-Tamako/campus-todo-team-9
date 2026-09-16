@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { authApi } from '../api/auth'
 import { getApiErrorMessage } from '../api/errors'
+import { isStrongPassword } from './registerValidation'
 
 type RegisterValues = {
   student_id?: string
@@ -76,7 +77,16 @@ export function RegisterPage() {
           <Form.Item
             label="密码"
             name="password"
-            rules={[{ required: true, min: 8, message: '密码至少需要 8 位' }]}
+            rules={[
+              { required: true, message: '请输入密码' },
+              { min: 8, message: '密码至少需要 8 位' },
+              {
+                validator: (_, value: string | undefined) =>
+                  !value || isStrongPassword(value)
+                    ? Promise.resolve()
+                    : Promise.reject(new Error('密码至少 8 位且需同时包含字母和数字')),
+              },
+            ]}
           >
             <Input.Password prefix={<LockOutlined />} placeholder="至少 8 位字符" autoComplete="new-password" />
           </Form.Item>

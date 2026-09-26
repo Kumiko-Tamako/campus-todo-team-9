@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,6 +17,42 @@ class AskQuestionRequest(BaseModel):
 
     title: str = Field(min_length=1, max_length=100)
     body: str = Field(min_length=1, max_length=5000)
+
+
+class PostAnswerRequest(BaseModel):
+    """POST /api/v1/questions/{qid}/answers 请求体（US-A01）。
+
+    正文与问题共用 1~5000 字约束；作者只取令牌，绝不取自请求体。
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class VoteRequest(BaseModel):
+    """投票请求体（US-V01）：direction 枚举即校验，非法值 422。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    direction: Literal["up", "down"]
+
+
+class CommentRequest(BaseModel):
+    """评论请求体（US-C01）：正文复用 Body 值对象约束（v3 自裁：1~5000 字）。"""
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class CommentResponse(BaseModel):
+    """评论白名单（按时间正序返回，1.3 功能域 9）。"""
+
+    id: UUID
+    body: str
+    author_id: UUID
+    created_at: datetime
 
 
 class QuestionResponse(BaseModel):
@@ -47,11 +84,24 @@ class QuestionListResponse(BaseModel):
     total_pages: int
 
 
+class AnswerResponse(BaseModel):
+    """回答白名单（US-A01/A05）：votes 为净票数（v3 裁定 #1，可为负）。"""
+
+    id: UUID
+    body: str
+    author_id: UUID
+    created_at: datetime
+    votes: int
+    is_accepted: bool
+    comments: list[CommentResponse] = Field(default_factory=list)
+
+
 class QuestionDetailResponse(BaseModel):
     """详情白名单。
 
-    tags/answers 迭代 1 恒为空列表（答案/标签功能阶段 3 就位；
-    answers 元素结构届时定稿，当前仅占位）。
+    answers 按 D2 定稿排序（已采纳恒最前 > 净票数降序 > 时间正序）；
+    accepted_answer_id 顶层返回便于前端直接定位（v3 裁定 #3）；
+    comments 为题评（US-C01，按时间正序）；tags 迭代 1 恒为空列表（分支 3 就位）。
     """
 
     id: UUID
@@ -59,5 +109,7 @@ class QuestionDetailResponse(BaseModel):
     body: str
     author_id: UUID
     created_at: datetime
+    accepted_answer_id: UUID | None
     tags: list[str] = Field(default_factory=list)
-    answers: list[str] = Field(default_factory=list)
+    answers: list[AnswerResponse] = Field(default_factory=list)
+    comments: list[CommentResponse] = Field(default_factory=list)

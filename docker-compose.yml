@@ -1,6 +1,9 @@
 services:
   db:
     image: postgres:16-alpine
+    # 容量工程（2026-09-26）：max_connections 100→400（4 workers × (20+30) = 200 ≤ 400 留余量）；
+    # shared_buffers 128MB→256MB。不变式：workers × (pool_size + max_overflow) ≤ max_connections − 余量。
+    command: ["postgres", "-c", "max_connections=400", "-c", "shared_buffers=256MB"]
     environment:
       POSTGRES_USER: campus
       POSTGRES_PASSWORD: campus

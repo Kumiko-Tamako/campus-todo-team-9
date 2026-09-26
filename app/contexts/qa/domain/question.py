@@ -22,14 +22,19 @@ class QuestionPublished:
 
 @dataclass
 class Question:
-    """Question 聚合根（迭代 1：标题 + 正文 + 作者引用，暂不含 Vote/Comment）。"""
+    """Question 聚合根（迭代 3：+ accepted_answer_id 采纳引用；Vote/Comment 为独立仓储建模）。"""
 
     id: UUID
     title: Title
     body: Body
     author_id: UUID
     created_at: datetime
+    accepted_answer_id: UUID | None = None
     events: list[QuestionPublished] = field(default_factory=list, repr=False, compare=False)
+
+    def mark_accepted(self, answer_id: UUID) -> None:
+        """记录采纳答案引用（US-V03 跨聚合双写的本侧；幂等检查在应用层）。"""
+        self.accepted_answer_id = answer_id
 
     @classmethod
     def ask(cls, *, title_value: str, body_value: str, author_id: UUID) -> Question:

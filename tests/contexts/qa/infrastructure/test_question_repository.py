@@ -129,7 +129,9 @@ async def test_list_paginated_tiebreaker_deterministic() -> None:
         await repo.add(qb)
         await session.commit()
 
-        items, _total = await repo.list_paginated(page=1, page_size=1000)
+        # 仓储端口无 page_size 上限（上限在路由层 le=100）；本地开发库经多轮
+        # 暴力测试累积超千行，种子为 2019 旧时间戳排在窗口尾部，需大窗口保证可查
+        items, _total = await repo.list_paginated(page=1, page_size=100000)
         ids = [q.id for q in items]
         ia, ib = ids.index(qa.id), ids.index(qb.id)
         # 同 created_at：id 大者在前（确定性全序，跨页不重复/不漏项）

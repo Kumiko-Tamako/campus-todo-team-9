@@ -279,18 +279,15 @@ async def test_list_page_size_over_limit_422_and_boundary_100_ok(
     assert resp.json()["page_size"] == 100
 
 
-async def test_list_ignores_unknown_sort_param(client: httpx.AsyncClient) -> None:
-    """S-07（A 方案约定）：迭代 1 无排序功能，未知 query 参数被忽略——
-    sort 不进 SQL、无注入面，仍 200 且保持"最新优先"默认序，不 500。"""
-    token, _ = await _register_and_login(client)
-    r = await client.post("/api/v1/questions", json=_question_payload(), headers=_auth(token))
-    assert r.status_code == 201
-    posted_id = r.json()["id"]
+async def test_list_rejects_invalid_sort_param_s07(client: httpx.AsyncClient) -> None:
+    """S-07（迭代 2 收紧）：sort 为枚举参数，非法值（含注入串）在参数校验即 422，
+    不进 SQL、不回显输入；合法 latest/votes 均 200。"""
     resp = await client.get("/api/v1/questions", params={"sort": "(SELECT 1)"})
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["page"] == 1 and data["page_size"] == 20
-    assert data["items"][0]["id"] == posted_id
+    assert resp.status_code == 422
+    _assert_no_input_echo(resp)
+    for good in ("latest", "votes"):
+        resp = await client.get("/api/v1/questions", params={"sort": good})
+        assert resp.status_code == 200
 
 
 async def test_list_pagination_exact_slicing_s08(client: httpx.AsyncClient) -> None:
@@ -338,7 +335,8 @@ async def test_posted_question_immediately_first_in_list(
 
 
 async def test_detail_returns_full_whitelist_fields(client: httpx.AsyncClient) -> None:
-    """S-09：详情字段完整；tags/answers 迭代 1 恒为空列表。"""
+    """S-09：详情字段完整；tags 迭代 1 恒空；answers/comments 实装（迭代 2/3），
+    accepted_answer_id 顶层返回（v3 裁定 #3）。"""
     token, user_id = await _register_and_login(client)
     r = await client.post(
         "/api/v1/questions",
@@ -351,8 +349,10 @@ async def test_detail_returns_full_whitelist_fields(client: httpx.AsyncClient) -
     assert resp.status_code == 200
     data = resp.json()
     assert set(data.keys()) == {
-        "id", "title", "body", "author_id", "created_at", "tags", "answers",
+        "id", "title", "body", "author_id", "created_at",
+        "accepted_answer_id", "tags", "answers", "comments",
     }
+    assert data["accepted_answer_id"] is None
     assert data["title"] == "详情标题"
     assert data["body"] == "详情正文明细"
     assert data["author_id"] == user_id

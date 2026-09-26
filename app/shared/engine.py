@@ -13,8 +13,20 @@ from app.config.settings import get_settings
 
 def _build_engine() -> AsyncEngine:
     settings = get_settings()
+    if settings.db_pool_size > 0:
+        # 池化模式（仅哨兵 >0 时启用；0 绝不能传入池——SQLAlchemy 的 pool_size=0 是无上限池）。
+        # pre_ping/recycle 防 WSL2/Docker NAT 静默丢弃空闲连接；上限 = pool_size+max_overflow。
+        return create_async_engine(
+            settings.database_url,
+            poolclass=pool.AsyncAdaptedQueuePool,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_timeout=settings.db_pool_timeout,
+            pool_pre_ping=True,
+            pool_recycle=1800,
+        )
     # NullPool：不复用连接。代价是每次请求新建连接（本机 ~1ms），
-    # 换取对 pytest 多事件循环 / uvicorn --reload 的免疫，阶段 4 上线前再评估连接池。
+    # 换取对 pytest 多事件循环 / uvicorn --reload 的免疫（默认路径，测试/CI 零影响）。
     return create_async_engine(
         settings.database_url,
         poolclass=pool.NullPool,

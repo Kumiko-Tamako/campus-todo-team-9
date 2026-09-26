@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, case, func, select
+from sqlalchemy import ColumnElement, CursorResult, case, func, select
+from sqlalchemy import update as sql_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -151,18 +152,22 @@ class SqlAlchemyAnswerRepository:
 
     async def update(self, answer: Answer) -> None:
         # 采纳翻转（US-V03）：只同步可变态 is_accepted。
-        # 并发抢采纳由部分唯一索引 uq_answers_one_accepted_per_question 兜底
-        # （AC-12 暴力测试发现竞态：应用层"先读后写"在并发下可被穿透）
+        # 并发兜底双保险：① 部分唯一索引 uq_answers_one_accepted_per_question 防"同题多答案"
+        # （AC-12）；② 下方条件 UPDATE（WHERE is_accepted=false + rowcount）防"同一 answer 行
+        # 重复翻转"——第五路 K-03：应用层先读后写在并发下可多路过检查；条件更新下 PG 行锁
+        # 等待后按最新版本重判 WHERE，仅 1 路 rowcount=1，其余归 409。
         model = await self._session.get(AnswerModel, answer.id)
         if model is None:  # 理论不可达（用例先 get_by_id），防御性
             return
-        model.is_accepted = answer.is_accepted
-        try:
-            await self._session.flush()
-        except IntegrityError as exc:
-            raise AnswerAlreadyAcceptedError(
-                f"该问题已有采纳答案（并发兜底）：{exc.orig}"
-            ) from exc
+        stmt = (
+            sql_update(AnswerModel)
+            .where(AnswerModel.id == answer.id, AnswerModel.is_accepted.is_(False))
+            .values(is_accepted=True)
+            .execution_options(synchronize_session=False)
+        )
+        result = cast(CursorResult[Any], await self._session.execute(stmt))
+        if result.rowcount == 0:
+            raise AnswerAlreadyAcceptedError("该答案已被采纳")
 
     async def get_by_id(self, answer_id: UUID) -> Answer | None:
         model = (

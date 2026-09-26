@@ -20,7 +20,7 @@ token_service = JwtTokenService(get_settings().jwt_secret)
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> User:
     """解析 Authorization: Bearer → 校验 Access 令牌 → 查库返回当前用户（2.3）。"""
     if credentials is None:

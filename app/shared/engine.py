@@ -38,6 +38,14 @@ session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
+    """请求级会话依赖（事务边界在退出代码中提交/回滚）。
+
+    注意：**所有使用点**须声明 ``Depends(get_session, scope="function")``——
+    FastAPI ≥0.106 默认在响应【发送后】执行 yield 依赖的退出代码，commit 会落后于
+    响应，造成"201 后亚秒级立即级联请求读不到数据"的可见性窗口（register→login 401、
+    题目→立即建答 404）；scope="function" 使退出代码在响应【数据生成后、发送前】执行，
+    commit 先于响应返回（详见台账 8.3 遗留项与 ADR-003）。
+    """
     async with session_factory() as session:
         try:
             yield session

@@ -29,6 +29,9 @@ def create_app() -> FastAPI:
     application.add_exception_handler(SATimeoutError, db_unavailable_handler)
     application.add_exception_handler(asyncpg.exceptions.PostgresError, db_unavailable_handler)
     application.add_exception_handler(asyncpg.exceptions.InterfaceError, db_unavailable_handler)
+    # PG 不可达（进程死/端口关）时 asyncpg 抛 ConnectionRefusedError（OSError 族，非 asyncpg
+    # 异常树）——第五路 D 路实证的 503 分层缺口：注册 ConnectionError 全族兜底
+    application.add_exception_handler(ConnectionError, db_unavailable_handler)
     application.include_router(auth_router)
     application.include_router(qa_router)
     application.include_router(qa_answers_router)

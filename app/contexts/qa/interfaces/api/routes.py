@@ -64,7 +64,7 @@ answers_router = APIRouter(prefix="/api/v1/answers", tags=["answers"])
 async def ask_question(
     payload: AskQuestionRequest,
     user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> QuestionResponse:
     use_case = AskQuestionUseCase(SqlAlchemyQuestionRepository(session))
     try:
@@ -101,7 +101,7 @@ async def list_questions(
         default=QuestionSort.LATEST,
         description="排序：latest=最新（默认）；votes=净票数高→低（US-Q02 迭代 2）",
     ),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> QuestionListResponse:
     # sort 为枚举：非法值（含注入串）在参数校验即 422，不进 SQL（S-07 迭代 2 收紧）
     use_case = ListQuestionsUseCase(SqlAlchemyQuestionRepository(session))
@@ -132,7 +132,7 @@ async def list_questions(
 )
 async def get_question(
     question_id: UUID,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> QuestionDetailResponse:
     use_case = GetQuestionUseCase(
         SqlAlchemyQuestionRepository(session),
@@ -186,7 +186,7 @@ async def post_answer(
     question_id: UUID,
     payload: PostAnswerRequest,
     user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> AnswerResponse:
     use_case = PostAnswerUseCase(
         SqlAlchemyQuestionRepository(session), SqlAlchemyAnswerRepository(session)
@@ -254,7 +254,7 @@ async def vote_question(
     question_id: UUID,
     payload: VoteRequest,
     user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> Response:
     return await _vote(VoteTarget.QUESTION, question_id, payload, user.id, session)
 
@@ -269,7 +269,7 @@ async def vote_answer(
     answer_id: UUID,
     payload: VoteRequest,
     user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> Response:
     # 路径嵌套仅为可读性；回答存在性由 answer_id 定位（question_id 不参与查询）
     return await _vote(VoteTarget.ANSWER, answer_id, payload, user.id, session)
@@ -316,7 +316,7 @@ async def comment_question(
     question_id: UUID,
     payload: CommentRequest,
     user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> CommentResponse:
     return await _create_comment(CommentTarget.QUESTION, question_id, payload, user.id, session)
 
@@ -331,7 +331,7 @@ async def comment_answer(
     answer_id: UUID,
     payload: CommentRequest,
     user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> CommentResponse:
     return await _create_comment(CommentTarget.ANSWER, answer_id, payload, user.id, session)
 
@@ -344,7 +344,7 @@ async def comment_answer(
 async def accept_answer(
     answer_id: UUID,
     user: CurrentUser,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> Response:
     use_case = AcceptAnswerUseCase(
         SqlAlchemyQuestionRepository(session), SqlAlchemyAnswerRepository(session)

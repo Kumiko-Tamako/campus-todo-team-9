@@ -39,7 +39,7 @@
 - **正向**：PG 连接风暴消除（单 worker pgmax ≤51、4 workers ≤201，与池上限精确对应）；容量提升 5-6 倍；连接类故障由裸 500 变为语义化 503（可重试）；池为显式配置项，默认路径（测试/CI）零影响。
 - **遗留（如实，详见台账第八节）**：
   1. **多 worker 30s 级偶发挂起**：仅多 worker、仅业务请求（100 档首轮 29/8425、300 档 70-100 个）；同时段独立探针（直连同链路 asyncpg）62-111ms 全程健康、PG 侧 idle、4 worker 存活 → 非 DB/网络链路问题，未定位到产品代码原因。按"Windows 多 worker 实证失败"降级：终测采用单 worker 口径；生产（Linux 容器直连拓扑）需复验。
-  2. **既有可见性窗口（非本轮引入）**：FastAPI ≥0.106 起 yield 依赖 teardown 在响应发送后执行（`get_session` 的 commit 随之后置）——register/question 201 与提交间存在亚秒窗口，立即级联操作（login/子资源创建）可能 401/404。压测侧已加可见性重试适配；产品修复（写用例显式提交）待单独评估。
+  2. **既有可见性窗口（非本轮引入）**：FastAPI ≥0.106 起 yield 依赖 teardown 在响应发送后执行（`get_session` 的 commit 随之后置）——register/question 201 与提交间存在亚秒窗口，立即级联操作（login/子资源创建）可能 401/404。**已于 2026-09-26 实施修复**：全部 13 处使用点声明 `Depends(get_session, scope="function")`（退出代码在响应数据生成后、发送前执行，commit 先于响应返回）；双实证：注册后亚毫秒立即登录 20/20 全 200、压测 `VISIBILITY_RETRIES=0`，见 PROGRESS 变更记录。
   3. 测试方法学：httpx 单进程 CPU ~12ms/请求（~90 RPS 天花板）为测量伪影，已换 raw asyncio keep-alive（~0.26ms/请求）；Docker Desktop 端口转发建连 50-400ms 且负载下劣化，复测改用直连 Docker VM IP（更接近生产容器同网拓扑）；冲顶阶段以 **pre-connect 两阶段（分批预建连）+ 轮间 TIME_WAIT 冷却**保障测量干净（详见台账 8.4）。
 
 ## 关联

@@ -59,7 +59,7 @@ def _build_login_use_case(session: AsyncSession) -> LoginUseCase:
 )
 async def register(
     payload: RegisterRequest,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> RegisterResponse:
     use_case = _build_register_use_case(session)
     command = RegisterCommand(
@@ -99,7 +99,7 @@ async def register(
 )
 async def login(
     payload: LoginRequest,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> TokenPairResponse:
     use_case = _build_login_use_case(session)
     try:
@@ -125,7 +125,7 @@ async def login(
 )
 async def refresh(
     payload: RefreshRequest,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> TokenPairResponse:
     decoded = _token_service.decode_refresh(payload.refresh_token)
     if decoded is None:

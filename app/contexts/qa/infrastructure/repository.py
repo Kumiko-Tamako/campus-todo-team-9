@@ -165,7 +165,12 @@ class SqlAlchemyAnswerRepository:
             .values(is_accepted=True)
             .execution_options(synchronize_session=False)
         )
-        result = cast(CursorResult[Any], await self._session.execute(stmt))
+        try:
+            result = cast(CursorResult[Any], await self._session.execute(stmt))
+        except IntegrityError as exc:
+            # 同题【不同】答案并发抢采：部分唯一索引在首个事务提交后令后到者的索引
+            # 插入失败（AC-12 库级兜底，289a001 条件 UPDATE 重写时曾遗漏本翻译致 400）。
+            raise AnswerAlreadyAcceptedError("该问题已有采纳答案（并发兜底）") from exc
         if result.rowcount == 0:
             raise AnswerAlreadyAcceptedError("该答案已被采纳")
 
@@ -271,8 +276,9 @@ class SqlAlchemyVoteRepository:
         try:
             await self._session.flush()
         except IntegrityError as exc:
-            # 并发窗口内重复票：复合唯一索引兜底 → 重复票语义（与 identity 注册并发兜底同模式）
-            raise AlreadyVotedError(f"投票唯一性冲突（并发兜底）：{exc.orig}") from exc
+            # 并发窗口内重复票：复合唯一索引兜底 → 重复票语义（与 identity 注册并发兜底同模式）。
+            # 不回显 exc.orig（含约束名/DB 细节，Bug-5 泄露）——详情随异常链入服务端日志
+            raise AlreadyVotedError("已对该对象投过票（并发兜底）") from exc
 
     @staticmethod
     def _to_domain(model: VoteModel) -> Vote:

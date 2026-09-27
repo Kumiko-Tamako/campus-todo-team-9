@@ -166,17 +166,24 @@ async def test_list_by_question_orders_d2_with_net_votes() -> None:
 async def test_accepted_answer_sorts_first_regardless_of_votes() -> None:
     """1.3 功能域 8：被采纳回答（净 0 票）优先于高票未采纳回答（净 5 票）。
 
-    is_accepted 列先行落库（分支 2 才提供 accept() 行为），此处直接构造验证排序。
+    直接构造 is_accepted 列验证排序；采纳不变式要求两侧成对
+    （answers.is_accepted 与 questions.accepted_answer_id），只写答案侧会在
+    库里留脏行（第八路观察点 4：每次 pytest 泄漏 1 行），故问题侧同步落库。
     """
+    from app.contexts.qa.infrastructure.repository import SqlAlchemyQuestionRepository
+
     author = await _make_author()
     question = await _make_question(author)
     a_accepted = _answer(question.id, author, at=_BASE)
     a_accepted.is_accepted = True
+    question.mark_accepted(a_accepted.id)
     a_high = _answer(question.id, author, at=_BASE + timedelta(seconds=1))
     voters = [await _make_author() for _ in range(5)]
     async with session_factory() as session:
         await SqlAlchemyAnswerRepository(session).add(a_accepted)
         await SqlAlchemyAnswerRepository(session).add(a_high)
+        question.mark_accepted(a_accepted.id)
+        await SqlAlchemyQuestionRepository(session).update(question)
         votes = SqlAlchemyVoteRepository(session)
         for voter in voters:
             await votes.add(

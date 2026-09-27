@@ -32,6 +32,10 @@ def create_app() -> FastAPI:
     # PG 不可达（进程死/端口关）时 asyncpg 抛 ConnectionRefusedError（OSError 族，非 asyncpg
     # 异常树）——第五路 D 路实证的 503 分层缺口：注册 ConnectionError 全族兜底
     application.add_exception_handler(ConnectionError, db_unavailable_handler)
+    # PG"黑洞"（不拒连）时 asyncpg 建连超时抛内置 TimeoutError（asyncio.TimeoutError 同类，
+    # connect_args timeout 到期）——第六路实测的 503 分层缺口；池排队超时仍由更具体的
+    # sqlalchemy.exc.TimeoutError 命中（MRO 先精确）
+    application.add_exception_handler(TimeoutError, db_unavailable_handler)
     application.include_router(auth_router)
     application.include_router(qa_router)
     application.include_router(qa_answers_router)

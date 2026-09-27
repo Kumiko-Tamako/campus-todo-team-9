@@ -64,4 +64,17 @@ async def dbapi_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, DBAPIError)  # 注册时绑定的异常类，必然成立
     if isinstance(exc, (IntegrityError, DataError, ProgrammingError)):
         return await sqlalchemy_error_handler(request, exc)
+    if _asyncpg_sqlstate_in(exc, ("22",)):
+        # 服务端数据类错误（22xxx，如 22001 截断）：恢复设计的 DataError→400。
+        # asyncpg 的该族经方言映射落 sqlalchemy InterfaceError（sqlalchemy 侧
+        # 无法与连接类 InterfaceError 区分），经 orig.__cause__ 的 SQLSTATE 识别
+        # （第八路观察点 1：曾是死分支）。
+        return await sqlalchemy_error_handler(request, exc)
     return await db_unavailable_handler(request, exc)
+
+
+def _asyncpg_sqlstate_in(exc: DBAPIError, prefixes: tuple[str, ...]) -> bool:
+    """方言翻译后 orig.__cause__ 链上挂着 asyncpg 服务端原错误（含 sqlstate）。"""
+    cause = getattr(getattr(exc, "orig", None), "__cause__", None)
+    sqlstate = getattr(cause, "sqlstate", None)
+    return isinstance(sqlstate, str) and sqlstate.startswith(prefixes)

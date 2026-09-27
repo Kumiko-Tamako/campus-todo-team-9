@@ -8,6 +8,7 @@ from app.config.settings import get_settings
 from app.contexts.identity.interfaces.api.routes import router as auth_router
 from app.contexts.qa.interfaces.api.routes import answers_router as qa_answers_router
 from app.contexts.qa.interfaces.api.routes import router as qa_router
+from app.contexts.qa.interfaces.api.routes import tags_router as qa_tags_router
 from app.shared.body_limit import BodyLimitMiddleware
 from app.shared.exception_handlers import (
     db_unavailable_handler,
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
     application.include_router(auth_router)
     application.include_router(qa_router)
     application.include_router(qa_answers_router)
+    application.include_router(qa_tags_router)
 
     @application.get("/health", tags=["ops"])
     def health() -> dict[str, str]:

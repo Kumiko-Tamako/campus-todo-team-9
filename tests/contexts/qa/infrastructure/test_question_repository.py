@@ -18,7 +18,10 @@ from app.contexts.qa.application.ask_question_use_case import AskQuestionUseCase
 from app.contexts.qa.application.commands import AskQuestionCommand
 from app.contexts.qa.domain.question import Question
 from app.contexts.qa.domain.value_objects import Body, Title
-from app.contexts.qa.infrastructure.repository import SqlAlchemyQuestionRepository
+from app.contexts.qa.infrastructure.repository import (
+    SqlAlchemyQuestionRepository,
+    SqlAlchemyTagCatalogRepository,
+)
 from app.shared.engine import session_factory
 
 pytestmark = pytest.mark.integration
@@ -43,7 +46,9 @@ async def _make_author() -> uuid.UUID:
 async def test_question_persists_and_roundtrips() -> None:
     author_id = await _make_author()
     async with session_factory() as session:
-        use_case = AskQuestionUseCase(SqlAlchemyQuestionRepository(session))
+        use_case = AskQuestionUseCase(
+            SqlAlchemyQuestionRepository(session), SqlAlchemyTagCatalogRepository(session)
+        )
         question = await use_case.execute(
             AskQuestionCommand(
                 title="  仓储回读测试标题  ",

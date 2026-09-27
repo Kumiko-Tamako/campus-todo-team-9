@@ -7,6 +7,7 @@ from uuid import UUID
 from app.contexts.qa.domain.answer import Answer
 from app.contexts.qa.domain.comment import Comment, CommentTarget
 from app.contexts.qa.domain.question import Question
+from app.contexts.qa.domain.tag import Tag
 from app.contexts.qa.domain.vote import Vote, VoteTarget
 
 
@@ -91,4 +92,20 @@ class CommentRepository(Protocol):
         self, target_type: CommentTarget, target_id: UUID
     ) -> list[Comment]:
         """列出某目标的全部评论，按时间正序（1.3 功能域 9：答评按时间正序排列）。"""
+        ...
+
+
+class TagCatalogRepository(Protocol):
+    """TagCatalog 持久化端口（迭代 4，US-T01/T02）：目录 = tags 表全局唯一。
+
+    get-or-create 语义（随用随建，T02）：同名（lower 归一键）命中既有行则复用，
+    未命中则插入；并发双插由 lower(name) 唯一索引兜底，实现内 savepoint 重试。
+    """
+
+    async def get_or_create(self, tag: Tag) -> Tag:
+        """按归并键取目录内标签，不存在则创建（幂等）。"""
+        ...
+
+    async def list_all(self) -> list[Tag]:
+        """列出目录全部标签（显示名 = 建目时的规范名）。"""
         ...

@@ -9,11 +9,15 @@ from app.contexts.qa.domain.vote import VoteDirection, VoteTarget
 
 @dataclass(frozen=True, slots=True)
 class AskQuestionCommand:
-    """提问用例的输入命令。author_id 来自认证依赖（当前登录用户），绝不来自请求体。"""
+    """提问用例的输入命令。author_id 来自认证依赖（当前登录用户），绝不来自请求体。
+
+    tags 为原始标签串列表（可缺省）；合法性/去重/≤5 上限由用例经 TagCatalog 裁决（Q03）。
+    """
 
     title: str
     body: str
     author_id: UUID
+    tags: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

@@ -11,12 +11,16 @@ class AskQuestionRequest(BaseModel):
     """POST /api/v1/questions 请求体。
 
     str_strip_whitespace 在长度约束之前生效：纯空白标题/正文 strip 后为空 → 422。
+    tags 可选（迭代 4，Q03）：schema 只拦原始数量滥用（≤20 松上限）与类型/结构错误
+    （数组形 422）；去重后 ≤5、白名单字符等语义校验在领域层（字符串形 422），
+    两种 422 形态见 api-contract-notes。
     """
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     title: str = Field(min_length=1, max_length=100)
     body: str = Field(min_length=1, max_length=5000)
+    tags: list[str] = Field(default_factory=list, max_length=20)
 
 
 class PostAnswerRequest(BaseModel):
@@ -56,22 +60,33 @@ class CommentResponse(BaseModel):
 
 
 class QuestionResponse(BaseModel):
-    """问题响应白名单：不含任何内部字段。"""
+    """问题响应白名单：不含任何内部字段。tags 为规范名列表（迭代 4，Q03）。"""
 
     id: UUID
     title: str
     body: str
     author_id: UUID
     created_at: datetime
+    tags: list[str] = Field(default_factory=list)
 
 
 class QuestionListItem(BaseModel):
-    """列表条目白名单：不含正文（正文最长 5000 字，列表页不需要）与任何内部字段（S-12）。"""
+    """列表条目白名单：不含正文（正文最长 5000 字，列表页不需要）与任何内部字段（S-12）。
+
+    tags 为迭代 4 新增字段（增量、向后兼容）。
+    """
 
     id: UUID
     title: str
     author_id: UUID
     created_at: datetime
+    tags: list[str] = Field(default_factory=list)
+
+
+class TagListResponse(BaseModel):
+    """标签目录响应（US-T01，访客可用）：码点序、同名唯一（T02）。"""
+
+    tags: list[str]
 
 
 class QuestionListResponse(BaseModel):

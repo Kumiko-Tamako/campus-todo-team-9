@@ -673,6 +673,27 @@
         }
       }
     },
+    "/api/v1/tags": {
+      "get": {
+        "tags": [
+          "tags"
+        ],
+        "summary": "标签目录（访客可用，US-T01；码点序、同名唯一）",
+        "operationId": "list_tags_api_v1_tags_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -763,6 +784,14 @@
             "maxLength": 5000,
             "minLength": 1,
             "title": "Body"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Tags"
           }
         },
         "additionalProperties": false,
@@ -772,7 +801,7 @@
           "body"
         ],
         "title": "AskQuestionRequest",
-        "description": "POST /api/v1/questions 请求体。\n\nstr_strip_whitespace 在长度约束之前生效：纯空白标题/正文 strip 后为空 → 422。"
+        "description": "POST /api/v1/questions 请求体。\n\nstr_strip_whitespace 在长度约束之前生效：纯空白标题/正文 strip 后为空 → 422。\ntags 可选（迭代 4，Q03）：schema 只拦原始数量滥用（≤20 松上限）与类型/结构错误\n（数组形 422）；去重后 ≤5、白名单字符等语义校验在领域层（字符串形 422），\n两种 422 形态见 api-contract-notes。"
       },
       "CommentRequest": {
         "properties": {
@@ -968,6 +997,13 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
           }
         },
         "type": "object",
@@ -978,7 +1014,7 @@
           "created_at"
         ],
         "title": "QuestionListItem",
-        "description": "列表条目白名单：不含正文（正文最长 5000 字，列表页不需要）与任何内部字段（S-12）。"
+        "description": "列表条目白名单：不含正文（正文最长 5000 字，列表页不需要）与任何内部字段（S-12）。\n\ntags 为迭代 4 新增字段（增量、向后兼容）。"
       },
       "QuestionListResponse": {
         "properties": {
@@ -1041,6 +1077,13 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
           }
         },
         "type": "object",
@@ -1052,7 +1095,7 @@
           "created_at"
         ],
         "title": "QuestionResponse",
-        "description": "问题响应白名单：不含任何内部字段。"
+        "description": "问题响应白名单：不含任何内部字段。tags 为规范名列表（迭代 4，Q03）。"
       },
       "QuestionSort": {
         "type": "string",
@@ -1190,6 +1233,23 @@
         ],
         "title": "RegisterResponse",
         "description": "注册响应：绝不包含密码任何形态。"
+      },
+      "TagListResponse": {
+        "properties": {
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tags"
+        ],
+        "title": "TagListResponse",
+        "description": "标签目录响应（US-T01，访客可用）：码点序、同名唯一（T02）。"
       },
       "TokenPairResponse": {
         "properties": {

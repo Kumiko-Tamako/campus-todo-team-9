@@ -19,7 +19,8 @@
 
 | 状态码 | `detail` 形态 | 来源 | 前端处理 |
 |:--|:--|:--|:--|
-| 422 | **数组** `[{type, loc, msg}]`（不回显 input） | Pydantic 校验（含 extra=forbid） | 逐项展示 msg。⚠️ schema 声明的 `input`/`ctx` 是 FastAPI 内置 ValidationError 模型残留，**实际响应永不含这两个键**，请以 type/loc/msg 为准 |
+| 422 | **数组** `[{type, loc, msg}]`（不回显 input） | Pydantic 校验（含 extra=forbid、tags 类型/结构/原始数量 >20） | 逐项展示 msg。⚠️ schema 声明的 `input`/`ctx` 是 FastAPI 内置 ValidationError 模型残留，**实际响应永不含这两个键**，请以 type/loc/msg 为准 |
+| 422 | **字符串**（中文业务语义，如"至多 5 个标签…""标签含不支持的字符…"） | 领域值对象校验（Title/Body/Tag 与标签去重后 ≤5 上限） | 直接展示该句。**tags 两种 422 形态都要处理**：类型/结构错=数组形，语义违规=字符串形 |
 | 401 | 字符串（如"令牌无效或已过期"） | Bearer 依赖层 | 跳登录页 |
 | 400 | 字符串"请求数据无法被数据库接受…" | 数据库兜底 | 提示检查输入 |
 | 413 | 字符串"request body too large" | 1 MiB body 上限中间件 | 提示内容过大 |

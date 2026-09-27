@@ -19,6 +19,7 @@ from app.contexts.qa.application.commands import (
 from app.contexts.qa.application.comment_use_case import CreateCommentUseCase
 from app.contexts.qa.application.get_question_use_case import GetQuestionUseCase
 from app.contexts.qa.application.list_questions_use_case import ListQuestionsUseCase
+from app.contexts.qa.application.list_tags_use_case import ListTagsUseCase
 from app.contexts.qa.application.queries import GetQuestionQuery, ListQuestionsQuery
 from app.contexts.qa.application.vote_use_case import VoteOnUseCase
 from app.contexts.qa.domain.comment import Comment, CommentTarget
@@ -35,6 +36,7 @@ from app.contexts.qa.infrastructure.repository import (
     SqlAlchemyAnswerRepository,
     SqlAlchemyCommentRepository,
     SqlAlchemyQuestionRepository,
+    SqlAlchemyTagCatalogRepository,
     SqlAlchemyVoteRepository,
 )
 from app.contexts.qa.interfaces.api.schemas import (
@@ -47,12 +49,14 @@ from app.contexts.qa.interfaces.api.schemas import (
     QuestionListItem,
     QuestionListResponse,
     QuestionResponse,
+    TagListResponse,
     VoteRequest,
 )
 from app.shared.engine import get_session
 
 router = APIRouter(prefix="/api/v1/questions", tags=["questions"])
 answers_router = APIRouter(prefix="/api/v1/answers", tags=["answers"])
+tags_router = APIRouter(prefix="/api/v1/tags", tags=["tags"])
 
 
 @router.post(
@@ -66,16 +70,19 @@ async def ask_question(
     user: CurrentUser,
     session: AsyncSession = Depends(get_session, scope="function"),
 ) -> QuestionResponse:
-    use_case = AskQuestionUseCase(SqlAlchemyQuestionRepository(session))
+    use_case = AskQuestionUseCase(
+        SqlAlchemyQuestionRepository(session), SqlAlchemyTagCatalogRepository(session)
+    )
     try:
         question = await use_case.execute(
             AskQuestionCommand(
                 title=payload.title,
                 body=payload.body,
                 author_id=user.id,  # 作者只取令牌中的当前用户，绝不取自请求体
+                tags=tuple(payload.tags),
             )
         )
-    except ValueError as exc:  # Title/Body 值对象兜底校验（schema 已拦大部分形态）
+    except ValueError as exc:  # Title/Body/Tag 值对象与目录上限兜底校验（字符串形 422）
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc
@@ -86,6 +93,8 @@ async def ask_question(
         body=question.body.value,
         author_id=question.author_id,
         created_at=question.created_at,
+        # 与 GET 装配序一致（规范名码点序，_tags_for 同口径）
+        tags=sorted(t.value for t in question.tags),
     )
 
 
@@ -115,6 +124,7 @@ async def list_questions(
                 title=q.title.value,
                 author_id=q.author_id,
                 created_at=q.created_at,
+                tags=[t.value for t in q.tags],
             )
             for q in result.items
         ],
@@ -150,7 +160,7 @@ async def get_question(
         author_id=view.question.author_id,
         created_at=view.question.created_at,
         accepted_answer_id=view.question.accepted_answer_id,
-        tags=[],
+        tags=[t.value for t in view.question.tags],
         answers=[
             AnswerResponse(
                 id=a.id,
@@ -358,3 +368,15 @@ async def accept_answer(
     except AnswerAlreadyAcceptedError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@tags_router.get(
+    "",
+    response_model=TagListResponse,
+    summary="标签目录（访客可用，US-T01；码点序、同名唯一）",
+)
+async def list_tags(
+    session: AsyncSession = Depends(get_session, scope="function"),
+) -> TagListResponse:
+    tags = await ListTagsUseCase(SqlAlchemyTagCatalogRepository(session)).execute()
+    return TagListResponse(tags=[t.value for t in tags])

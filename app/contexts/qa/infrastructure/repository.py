@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import ColumnElement, CursorResult, case, func, select
 from sqlalchemy import update as sql_update
@@ -16,12 +16,15 @@ from app.contexts.qa.domain.errors import (
 )
 from app.contexts.qa.domain.question import Question
 from app.contexts.qa.domain.repository import QuestionSort
+from app.contexts.qa.domain.tag import Tag
 from app.contexts.qa.domain.value_objects import Body, Title
 from app.contexts.qa.domain.vote import Vote, VoteDirection, VoteTarget
 from app.contexts.qa.infrastructure.models import (
     AnswerModel,
     CommentModel,
     QuestionModel,
+    QuestionTagModel,
+    TagModel,
     VoteModel,
 )
 
@@ -65,6 +68,11 @@ class SqlAlchemyQuestionRepository:
             )
         )
         await self._session.flush()
+        # 打标关联（迭代 4）：tag 行已由目录 get-or-create 落库，此处只挂多对多边
+        for tag in question.tags:
+            if tag.id is not None:
+                self._session.add(QuestionTagModel(question_id=question.id, tag_id=tag.id))
+        await self._session.flush()
 
     async def update(self, question: Question) -> None:
         # 采纳双写（US-V03）：只同步可变态 accepted_answer_id，其余字段建后不改（编辑属 Q08）
@@ -74,12 +82,33 @@ class SqlAlchemyQuestionRepository:
         model.accepted_answer_id = question.accepted_answer_id
         await self._session.flush()
 
+    async def _tags_for(self, question_ids: list[UUID]) -> dict[UUID, list[Tag]]:
+        """批量装配问题标签（列表/详情共用；一次 JOIN 防 N+1）。
+
+        显示序 = 规范码点序（Python 排序，locale 无关；PG collation 与码点序
+        对中文可能分歧，故不在 SQL 侧 order_by name——与 ListTagsUseCase 同口径）。
+        """
+        if not question_ids:
+            return {}
+        stmt = (
+            select(QuestionTagModel.question_id, TagModel.id, TagModel.name)
+            .join(TagModel, TagModel.id == QuestionTagModel.tag_id)
+            .where(QuestionTagModel.question_id.in_(question_ids))
+        )
+        result: dict[UUID, list[Tag]] = {qid: [] for qid in question_ids}
+        for qid, tag_id, name in (await self._session.execute(stmt)).all():
+            result[qid].append(Tag(value=name, id=tag_id))
+        for tags in result.values():
+            tags.sort(key=lambda t: t.value)
+        return result
+
     async def get_by_id(self, question_id: UUID) -> Question | None:
         stmt = select(QuestionModel).where(QuestionModel.id == question_id)
         model = (await self._session.execute(stmt)).scalar_one_or_none()
         if model is None:
             return None
         # 重建聚合：历史事件不从库回放（与 identity _to_domain 同模式）
+        tags_map = await self._tags_for([question_id])
         return Question(
             id=model.id,
             title=Title(model.title),
@@ -87,6 +116,7 @@ class SqlAlchemyQuestionRepository:
             author_id=model.author_id,
             created_at=model.created_at,
             accepted_answer_id=model.accepted_answer_id,
+            tags=tags_map[question_id],
         )
 
     async def list_paginated(
@@ -115,6 +145,7 @@ class SqlAlchemyQuestionRepository:
             .limit(page_size)
         )
         models = (await self._session.execute(stmt)).scalars().all()
+        tags_map = await self._tags_for([model.id for model in models])
         return (
             [
                 Question(
@@ -124,6 +155,7 @@ class SqlAlchemyQuestionRepository:
                     author_id=model.author_id,
                     created_at=model.created_at,
                     accepted_answer_id=model.accepted_answer_id,
+                    tags=tags_map[model.id],
                 )
                 for model in models
             ],
@@ -335,3 +367,43 @@ class SqlAlchemyCommentRepository:
             )
             for model in models
         ]
+
+
+class SqlAlchemyTagCatalogRepository:
+    """TagCatalogRepository 端口的 SQLAlchemy 实现（迭代 4，US-T01/T02）。"""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def _find(self, key: str) -> TagModel | None:
+        stmt = select(TagModel).where(TagModel.key == key)
+        return (await self._session.execute(stmt)).scalar_one_or_none()
+
+    async def get_or_create(self, tag: Tag) -> Tag:
+        # 随用随建（T02）：先按归并键查既有行（key 列唯一索引）
+        model = await self._find(tag.key)
+        if model is not None:
+            return Tag(value=model.name, id=model.id)
+        try:
+            # savepoint 隔离插入：并发双插撞唯一索引时仅回滚本 savepoint，
+            # 外层事务（含同请求已写的其它标签行）不受影响
+            async with self._session.begin_nested():
+                row = TagModel(id=uuid4(), name=tag.value, key=tag.key)
+                self._session.add(row)
+                await self._session.flush()
+        except IntegrityError:
+            # 竞败方：他事务已建同键行 → 重查复用（幂等，不报错）。
+            # 键由应用单侧计算（key 列），与库判定恒等，重查必命中
+            model = await self._find(tag.key)
+            if model is None:  # 理论不可达（撞唯一索引必有行）；防御性上抛
+                raise
+            return Tag(value=model.name, id=model.id)
+        return Tag(value=tag.value, id=row.id)
+
+    async def list_all(self) -> list[Tag]:
+        models = (
+            (await self._session.execute(select(TagModel).order_by(TagModel.name)))
+            .scalars()
+            .all()
+        )
+        return [Tag(value=m.name, id=m.id) for m in models]

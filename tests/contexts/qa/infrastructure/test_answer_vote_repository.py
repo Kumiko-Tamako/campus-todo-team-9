@@ -26,6 +26,7 @@ from app.contexts.qa.domain.vote import Vote, VoteDirection, VoteTarget
 from app.contexts.qa.infrastructure.repository import (
     SqlAlchemyAnswerRepository,
     SqlAlchemyQuestionRepository,
+    SqlAlchemyTagCatalogRepository,
     SqlAlchemyVoteRepository,
 )
 from app.shared.engine import session_factory
@@ -52,7 +53,9 @@ async def _make_author() -> uuid.UUID:
 
 async def _make_question(author_id: uuid.UUID) -> Question:
     async with session_factory() as session:
-        question = await AskQuestionUseCase(SqlAlchemyQuestionRepository(session)).execute(
+        question = await AskQuestionUseCase(
+            SqlAlchemyQuestionRepository(session), SqlAlchemyTagCatalogRepository(session)
+        ).execute(
             AskQuestionCommand(
                 title=f"答票仓储 {uuid.uuid4().hex[:8]}",
                 body="正文",

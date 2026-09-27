@@ -133,3 +133,49 @@ class CommentModel(Base):
         # 评论列表按 (target, created_at 正序) 读取（1.3 功能域 9）
         Index("ix_comments_target_created", "target_type", "target_id", "created_at"),
     )
+
+
+class TagModel(Base):
+    """tags 表：TagCatalog 目录行（迭代 4，US-T01/T02）。
+
+    name 存建目时规范名（显示名）；key 存归并键（domain Tag.key，应用计算）。
+    同名唯一 = key 列唯一索引——键由应用单侧计算并落列，**不用 PG lower(name) 表达式索引**：
+    Python str.lower 对个别码位（如 İ U+0130）做全映射（→i̇ 两码位），PG lower 做简单
+    映射（→i 一码位），两侧不一致会让"查不到→插入撞索引→重查仍查不到"成死路
+    （第九路 X-06 实证 400）。key 单源后应用与库判定恒等。
+    """
+
+    __tablename__ = "tags"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
+    # 归并键：value.lower() 可能全映射膨胀（≤2 倍），上限取 100
+    key: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    __table_args__ = (Index("uq_tags_key", "key", unique=True),)
+
+
+class QuestionTagModel(Base):
+    """question_tags 关联表：问题↔标签多对多（迭代 4，Q03）。
+
+    复合主键天然防同一 (question, tag) 重复挂接；两侧 FK CASCADE——
+    删问题或删标签都自动清理关联行（目录孤儿标签保留，v6 定稿：随用随建不回收）。
+    """
+
+    __tablename__ = "question_tags"
+
+    question_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("questions.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    tag_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("tags.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+    __table_args__ = (
+        # 按标签反查问题（未来发现域）与列表批量装配 tags 的访问路径
+        Index("ix_question_tags_tag", "tag_id"),
+    )

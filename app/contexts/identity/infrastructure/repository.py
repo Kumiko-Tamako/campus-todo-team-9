@@ -64,19 +64,27 @@ class SqlAlchemyUserRepository:
             )
         )
 
-        role_stmt = select(RoleModel).where(RoleModel.name == user.role)
-        role = (await self._session.execute(role_stmt)).scalar_one()
-        self._session.add(UserRoleModel(user_id=user.id, role_id=role.id))
-
-        if user.student_id is not None:
-            self._session.add(StudentModel(user_id=user.id, student_id=user.student_id.value))
-        if user.staff_id is not None:
-            self._session.add(TeacherModel(user_id=user.id, staff_id=user.staff_id.value))
-
         try:
+            # 注意：本块内任何查询都可能触发 autoflush 提前执行 INSERT（唯一冲突随之处抛出），
+            # 故查询与 flush 必须全部纳入 try，否则竞态 IntegrityError 会绕过 409 兜底
+            # （第五路 K-01：并发同 email 注册曾漏成 400）。
+            role_stmt = select(RoleModel).where(RoleModel.name == user.role)
+            role = (await self._session.execute(role_stmt)).scalar_one()
+            self._session.add(UserRoleModel(user_id=user.id, role_id=role.id))
+
+            if user.student_id is not None:
+                self._session.add(
+                    StudentModel(user_id=user.id, student_id=user.student_id.value)
+                )
+            if user.staff_id is not None:
+                self._session.add(
+                    TeacherModel(user_id=user.id, staff_id=user.staff_id.value)
+                )
+
             await self._session.flush()
         except IntegrityError as exc:
-            raise IdentityAlreadyExistsError(f"注册信息唯一性冲突（并发兜底）：{exc.orig}") from exc
+            # 不回显 exc.orig（含约束名/DB 细节）；详情随异常链入服务端日志
+            raise IdentityAlreadyExistsError("注册信息唯一性冲突（并发兜底）") from exc
 
     async def _to_domain(self, model: UserModel) -> User:
         student = (

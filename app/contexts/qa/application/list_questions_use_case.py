@@ -1,4 +1,4 @@
-"""列表用例：分页读取问题（US-Q02，访客可用；迭代 1 仅按最新排序）。"""
+"""列表用例：分页读取问题（US-Q02，访客可用；迭代 2 支持按净票数排序）。"""
 
 from __future__ import annotations
 
@@ -32,7 +32,9 @@ class ListQuestionsUseCase:
         self._repository = repository
 
     async def execute(self, query: ListQuestionsQuery) -> QuestionPage:
-        items, total = await self._repository.list_paginated(query.page, query.page_size)
+        items, total = await self._repository.list_paginated(
+            query.page, query.page_size, query.sort
+        )
         return QuestionPage(
             items=items,
             total=total,

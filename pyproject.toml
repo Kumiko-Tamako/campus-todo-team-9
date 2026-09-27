@@ -20,3 +20,15 @@ asyncio_mode = "auto"
 markers = [
     "integration: 需要本地 PostgreSQL + Redis（docker compose up -d），CI 环境跳过",
 ]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

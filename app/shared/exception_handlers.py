@@ -6,6 +6,9 @@
   （RecursionError）——本应 422 的请求被打成 500。
 - sqlalchemy_error_handler：未被路由捕获的数据库错误统一回 400，
   响应体不含驱动/栈信息，异常详情仅写服务端日志。
+- db_unavailable_handler：数据库暂不可达（asyncpg 裸连接异常 / 池排队超时）→ 503。
+- dbapi_error_handler：DBAPIError 分流——业务/代码类（IntegrityError/DataError/
+  ProgrammingError）沿用 400 兜底语义，其余（连接类/泛型）落 503。
 """
 
 from __future__ import annotations
@@ -15,6 +18,7 @@ import logging
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import DataError, DBAPIError, IntegrityError, ProgrammingError
 
 logger = logging.getLogger(__name__)
 
@@ -44,3 +48,33 @@ async def sqlalchemy_error_handler(
         status_code=400,
         content={"detail": "请求数据无法被数据库接受，请检查输入内容"},
     )
+
+
+async def db_unavailable_handler(request: Request, exc: Exception) -> JSONResponse:
+    """数据库暂时不可达：503 + 通用文案，异常详情仅入服务端日志。"""
+    logger.warning("数据库暂时不可达", exc_info=exc)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "服务暂时不可用，请稍后重试"},
+    )
+
+
+async def dbapi_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """DBAPIError 分流：业务/代码错误沿用 400 兜底；连接类与泛型落 503。"""
+    assert isinstance(exc, DBAPIError)  # 注册时绑定的异常类，必然成立
+    if isinstance(exc, (IntegrityError, DataError, ProgrammingError)):
+        return await sqlalchemy_error_handler(request, exc)
+    if _asyncpg_sqlstate_in(exc, ("22",)):
+        # 服务端数据类错误（22xxx，如 22001 截断）：恢复设计的 DataError→400。
+        # asyncpg 的该族经方言映射落 sqlalchemy InterfaceError（sqlalchemy 侧
+        # 无法与连接类 InterfaceError 区分），经 orig.__cause__ 的 SQLSTATE 识别
+        # （第八路观察点 1：曾是死分支）。
+        return await sqlalchemy_error_handler(request, exc)
+    return await db_unavailable_handler(request, exc)
+
+
+def _asyncpg_sqlstate_in(exc: DBAPIError, prefixes: tuple[str, ...]) -> bool:
+    """方言翻译后 orig.__cause__ 链上挂着 asyncpg 服务端原错误（含 sqlstate）。"""
+    cause = getattr(getattr(exc, "orig", None), "__cause__", None)
+    sqlstate = getattr(cause, "sqlstate", None)
+    return isinstance(sqlstate, str) and sqlstate.startswith(prefixes)

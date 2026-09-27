@@ -59,7 +59,7 @@ def _build_login_use_case(session: AsyncSession) -> LoginUseCase:
 )
 async def register(
     payload: RegisterRequest,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> RegisterResponse:
     use_case = _build_register_use_case(session)
     command = RegisterCommand(
@@ -99,7 +99,7 @@ async def register(
 )
 async def login(
     payload: LoginRequest,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> TokenPairResponse:
     use_case = _build_login_use_case(session)
     try:
@@ -125,18 +125,20 @@ async def login(
 )
 async def refresh(
     payload: RefreshRequest,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session, scope="function"),
 ) -> TokenPairResponse:
     decoded = _token_service.decode_refresh(payload.refresh_token)
     if decoded is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="刷新令牌无效或已过期")
     user_id, jti = decoded
-    consumed = await _refresh_store.consume(jti)
-    if consumed is None or consumed != user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="刷新令牌已失效")
+    # 先读用户再消耗令牌（跨存储顺序修正，第八路观察点 3）：DB 读失败返回 503 时
+    # 令牌未被 GETDEL 烧毁，客户端按契约重试可成功；先消耗再读会让 503 重试必然 401。
     user = await SqlAlchemyUserRepository(session).get_by_id(user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
+    consumed = await _refresh_store.consume(jti)
+    if consumed is None or consumed != user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="刷新令牌已失效")
 
     access_token = _token_service.issue_access(user)
     refresh_token, new_jti = _token_service.issue_refresh(user)

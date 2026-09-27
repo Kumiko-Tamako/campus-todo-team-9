@@ -25,8 +25,13 @@ jobs:
       - name: Type check
         run: mypy app
 
+      # 覆盖率门禁（Lab 7）：整体 ≥70%
       - name: Test
-        run: pytest -m "not integration"
+        run: pytest -m "not integration" --cov=app --cov-report=term-missing --cov-fail-under=70
+
+      # 覆盖率门禁（Lab 7）：核心聚合（domain 层）≥90%；复用上一步的 .coverage，不重跑测试
+      - name: Coverage gate (core aggregates >= 90%)
+        run: python -m coverage report --include="*/domain/*" --fail-under=90
 
       # 契约防漂移：API 变更后必须重跑 scripts/export_openapi.py 同步 openapi.json
       - name: OpenAPI contract drift check

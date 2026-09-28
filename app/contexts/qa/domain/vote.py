@@ -25,7 +25,9 @@ class VoteCast:
     """领域事件：一票已投出。
 
     由 VoteOnUseCase 投票成功即发（v3 自裁：Vote 为独立值对象 + 独立仓储，
-    不载入 Question/Answer 聚合，事件由应用层用例代发）；分支 4 只加 Celery 消费方。
+    事件由应用层用例代发）；分支 4 声誉消费方经 Celery 消费（US-REP01）。
+    载荷自足（3.6 细案 v3.1 D-A'(i)）：vote_id 作幂等键（票行主键、不可改票）、
+    user_id 供自投判断、target_author_id 供记分定位（worker 零查库）。
     """
 
     vote_id: UUID
@@ -33,6 +35,7 @@ class VoteCast:
     target_type: VoteTarget
     target_id: UUID
     direction: VoteDirection
+    target_author_id: UUID
     occurred_at: datetime
 
 
@@ -70,13 +73,17 @@ class Vote:
             created_at=datetime.now(UTC),
         )
 
-    def cast_event(self) -> VoteCast:
-        """本票对应的领域事件载荷（用例在投票成功后发出）。"""
+    def cast_event(self, *, target_author_id: UUID) -> VoteCast:
+        """本票对应的领域事件载荷（用例在投票成功后发出）。
+
+        target_author_id 由用例从已加载的目标聚合提取（载荷自足，D-A'(i)）。
+        """
         return VoteCast(
             vote_id=self.id,
             user_id=self.user_id,
             target_type=self.target_type,
             target_id=self.target_id,
             direction=self.direction,
+            target_author_id=target_author_id,
             occurred_at=self.created_at,
         )

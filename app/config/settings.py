@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     db_statement_timeout_ms: int = 5000
     db_lock_timeout_ms: int = 5000
     redis_url: str = "redis://localhost:6379/0"
+    # Celery broker（分支 4 声誉事件）：默认 redis db1，与身份 refresh token 的 db0 隔离
+    celery_broker_url: str = "redis://localhost:6379/1"
     # JWT 签名密钥：默认仅开发用，生产必须从环境变量覆盖（.env 不入库）
     jwt_secret: str = "dev-secret-change-me-in-production"
 

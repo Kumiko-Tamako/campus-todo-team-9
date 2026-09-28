@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import asdict
+from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.contexts.identity.interfaces.api.deps import CurrentUser
@@ -22,6 +25,7 @@ from app.contexts.qa.application.list_questions_use_case import ListQuestionsUse
 from app.contexts.qa.application.list_tags_use_case import ListTagsUseCase
 from app.contexts.qa.application.queries import GetQuestionQuery, ListQuestionsQuery
 from app.contexts.qa.application.vote_use_case import VoteOnUseCase
+from app.contexts.qa.domain.answer import AnswerAccepted
 from app.contexts.qa.domain.comment import Comment, CommentTarget
 from app.contexts.qa.domain.errors import (
     AlreadyVotedError,
@@ -31,7 +35,7 @@ from app.contexts.qa.domain.errors import (
     QuestionNotFoundError,
 )
 from app.contexts.qa.domain.repository import QuestionSort
-from app.contexts.qa.domain.vote import VoteDirection, VoteTarget
+from app.contexts.qa.domain.vote import VoteCast, VoteDirection, VoteTarget
 from app.contexts.qa.infrastructure.repository import (
     SqlAlchemyAnswerRepository,
     SqlAlchemyCommentRepository,
@@ -51,6 +55,10 @@ from app.contexts.qa.interfaces.api.schemas import (
     QuestionResponse,
     TagListResponse,
     VoteRequest,
+)
+from app.contexts.reputation.interfaces.publisher import (
+    publish_accept_event,
+    publish_vote_event,
 )
 from app.shared.engine import get_session
 
@@ -232,15 +240,20 @@ async def _vote(
     payload: VoteRequest,
     user_id: UUID,
     session: AsyncSession,
+    background_tasks: BackgroundTasks,
 ) -> Response:
-    """两个投票端点共用：成功 204；目标不存在 404；重复票（含改票）409。"""
+    """两个投票端点共用：成功 204；目标不存在 404；重复票（含改票）409。
+
+    成功后经声誉发布面投递 VoteCast（BackgroundTasks：scope="function" 下 commit
+    先于响应发送，发布时数据已落库——发布时序探针 R-07 实证，ADR-004）。
+    """
     use_case = VoteOnUseCase(
         SqlAlchemyQuestionRepository(session),
         SqlAlchemyAnswerRepository(session),
         SqlAlchemyVoteRepository(session),
     )
     try:
-        await use_case.execute(
+        result = await use_case.execute(
             VoteOnCommand(
                 target_type=target_type,
                 target_id=target_id,
@@ -252,6 +265,7 @@ async def _vote(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except AlreadyVotedError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    publish_vote_event(background_tasks, _event_payload(result.event))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -264,9 +278,12 @@ async def vote_question(
     question_id: UUID,
     payload: VoteRequest,
     user: CurrentUser,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session, scope="function"),
 ) -> Response:
-    return await _vote(VoteTarget.QUESTION, question_id, payload, user.id, session)
+    return await _vote(
+        VoteTarget.QUESTION, question_id, payload, user.id, session, background_tasks
+    )
 
 
 @router.post(
@@ -279,10 +296,13 @@ async def vote_answer(
     answer_id: UUID,
     payload: VoteRequest,
     user: CurrentUser,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session, scope="function"),
 ) -> Response:
     # 路径嵌套仅为可读性；回答存在性由 answer_id 定位（question_id 不参与查询）
-    return await _vote(VoteTarget.ANSWER, answer_id, payload, user.id, session)
+    return await _vote(
+        VoteTarget.ANSWER, answer_id, payload, user.id, session, background_tasks
+    )
 
 
 async def _create_comment(
@@ -354,20 +374,43 @@ async def comment_answer(
 async def accept_answer(
     answer_id: UUID,
     user: CurrentUser,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session, scope="function"),
 ) -> Response:
     use_case = AcceptAnswerUseCase(
         SqlAlchemyQuestionRepository(session), SqlAlchemyAnswerRepository(session)
     )
     try:
-        await use_case.execute(AcceptAnswerCommand(answer_id=answer_id, actor_id=user.id))
+        result = await use_case.execute(
+            AcceptAnswerCommand(answer_id=answer_id, actor_id=user.id)
+        )
     except AnswerNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except NotQuestionAuthorError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     except AnswerAlreadyAcceptedError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    publish_accept_event(background_tasks, _event_payload(result.event))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _event_payload(event: VoteCast | AnswerAccepted) -> dict[str, Any]:
+    """领域事件 → JSON 安全 dict（UUID→str、datetime→isoformat；StrEnum 即 str）。
+
+    kombu JSON 序列化要求叶子可 JSON 化；worker 入口经 tasks._to_uuid/
+    _to_datetime 回转（v3.1 注记 ③）。
+    """
+    data = asdict(event)
+    return {
+        key: (
+            str(value)
+            if isinstance(value, UUID)
+            else value.isoformat()
+            if isinstance(value, datetime)
+            else value
+        )
+        for key, value in data.items()
+    }
 
 
 @tags_router.get(

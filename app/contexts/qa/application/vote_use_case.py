@@ -48,16 +48,24 @@ class VoteOnUseCase:
         self._answer_repository = answer_repository
         self._vote_repository = vote_repository
 
-    async def _target_exists(self, target_type: VoteTarget, target_id: UUID) -> None:
+    async def _target_author(self, target_type: VoteTarget, target_id: UUID) -> UUID:
+        """定位目标并返回作者（不存在→404）。
+
+        v3.1 D-A'(i)：本就加载完整聚合，顺手提取 author_id 进事件载荷
+        （worker 零查库），替代原 _target_exists 的"只判存在"。
+        """
         if target_type is VoteTarget.QUESTION:
-            if await self._question_repository.get_by_id(target_id) is None:
+            question = await self._question_repository.get_by_id(target_id)
+            if question is None:
                 raise QuestionNotFoundError("问题不存在")
-        else:
-            if await self._answer_repository.get_by_id(target_id) is None:
-                raise AnswerNotFoundError("回答不存在")
+            return question.author_id
+        answer = await self._answer_repository.get_by_id(target_id)
+        if answer is None:
+            raise AnswerNotFoundError("回答不存在")
+        return answer.author_id
 
     async def execute(self, command: VoteOnCommand) -> VoteOutcome:
-        await self._target_exists(command.target_type, command.target_id)
+        target_author_id = await self._target_author(command.target_type, command.target_id)
         existing = await self._vote_repository.find_by_user_target(
             command.user_id, command.target_type, command.target_id
         )
@@ -70,4 +78,6 @@ class VoteOnUseCase:
             direction=command.direction,
         )
         await self._vote_repository.add(vote)
-        return VoteOutcome(vote=vote, event=vote.cast_event())
+        return VoteOutcome(
+            vote=vote, event=vote.cast_event(target_author_id=target_author_id)
+        )

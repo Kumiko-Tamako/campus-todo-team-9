@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from app.contexts.qa.application.commands import AcceptAnswerCommand
 from app.contexts.qa.domain.answer import Answer, AnswerAccepted
@@ -61,6 +62,7 @@ class AcceptAnswerUseCase:
         await self._question_repository.update(question)
 
         event = AnswerAccepted(
+            event_id=uuid4(),  # 幂等键（v3.1 裁定 1a）：采纳事务内生成一次
             answer_id=answer.id,
             question_id=question.id,
             answer_author_id=answer.author_id,

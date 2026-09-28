@@ -26,8 +26,11 @@ class AnswerAccepted:
 
     由 AcceptAnswerUseCase 在采纳成功（跨聚合双写提交）后发出——与 VoteCast 同模式：
     采纳是应用层编排的跨聚合行为，事件由用例代发（v3 自裁）。
+    event_id 为幂等键（uuid4，采纳事务内生成一次；重复采纳 409 保证一答一事件），
+    分支 4 以 (source, event_id) 复合唯一记账（v3.1 裁定 1a）。
     """
 
+    event_id: UUID
     answer_id: UUID
     question_id: UUID
     answer_author_id: UUID

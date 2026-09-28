@@ -694,6 +694,55 @@
         }
       }
     },
+    "/api/v1/users/{user_id}/reputation": {
+      "get": {
+        "tags": [
+          "reputation"
+        ],
+        "summary": "查询本人声誉总值与变动流水（仅本人，US-REP02；他人 403）",
+        "description": "仅本人可见（v3.1 裁定 4；Gherkin 功能域 11 场景 3 字面\"查询自己的声誉\"）。\n\n403（非 404）：user_id 在问题/回答的 author_id 已公开，无存在性可泄露，\n403 语义最准确；流水为空时返回 total=0 + 空列表（200）。",
+        "operationId": "get_reputation_api_v1_users__user_id__reputation_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReputationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -1233,6 +1282,71 @@
         ],
         "title": "RegisterResponse",
         "description": "注册响应：绝不包含密码任何形态。"
+      },
+      "ReputationEntryResponse": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "delta": {
+            "type": "integer",
+            "title": "Delta"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "event_id",
+          "delta",
+          "reason",
+          "occurred_at"
+        ],
+        "title": "ReputationEntryResponse",
+        "description": "单条流水（白名单：不含 user_id——路径已定位本人账本）。"
+      },
+      "ReputationResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ReputationEntryResponse"
+            },
+            "type": "array",
+            "title": "Entries"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "user_id",
+          "total",
+          "entries"
+        ],
+        "title": "ReputationResponse",
+        "description": "GET /api/v1/users/{user_id}/reputation 响应（v3.1 裁定 4：仅本人可见）。\n\nentries 不分页（v3.1 裁定：流水量小，对齐 GET /tags 惯例）。"
       },
       "TagListResponse": {
         "properties": {

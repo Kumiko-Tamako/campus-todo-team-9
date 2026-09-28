@@ -13,6 +13,7 @@ from alembic import context
 from app.config.settings import get_settings
 from app.contexts.identity.infrastructure import models  # noqa: F401  # 注册表元数据
 from app.contexts.qa.infrastructure import models as qa_models  # noqa: F401
+from app.contexts.reputation.infrastructure import models as rep_models  # noqa: F401
 from app.shared.db import Base
 
 config = context.config

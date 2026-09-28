@@ -9,10 +9,22 @@ select = ["E", "F", "I", "UP", "B"]
 # FastAPI 标准模式：Depends 作为路由参数默认值
 "app/contexts/identity/interfaces/api/**" = ["B008"]
 "app/contexts/qa/interfaces/api/**" = ["B008"]
+"app/contexts/reputation/interfaces/api/**" = ["B008"]
 
 [tool.mypy]
 strict = true
 files = ["app"]
+
+# celery 5.6 无 py.typed（实测）：strict 下缺 stubs 必报——定向豁免，不装新包（依赖纪律）
+[[tool.mypy.overrides]]
+module = ["celery.*"]
+ignore_missing_imports = true
+
+# celery 的 @task 装饰器无类型标注：任务薄壳模块定向关闭 untyped 装饰器检查
+# （其余 strict 规则不变；记账逻辑本体在 application 层，全量受检）
+[[tool.mypy.overrides]]
+module = ["app.contexts.reputation.infrastructure.tasks"]
+disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

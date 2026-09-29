@@ -12,8 +12,10 @@ from app.contexts.qa.domain.errors import (
     AnswerAlreadyAcceptedError,
     AnswerNotFoundError,
     NotQuestionAuthorError,
+    QuestionClosedError,
     QuestionNotFoundError,
 )
+from app.contexts.qa.domain.question import QuestionStatus
 from app.contexts.qa.domain.repository import AnswerRepository, QuestionRepository
 
 
@@ -26,16 +28,17 @@ class AcceptOutcome:
 
 
 class AcceptAnswerUseCase:
-    """采纳编排（计划 v3 分支 2）：
+    """采纳编排（计划 v3 分支 2；迭代 5 追加关闭态拦截）：
 
     1. 回答不存在 → AnswerNotFoundError（404）
     2. 仅提问者 → NotQuestionAuthorError（403，1.3 功能域 8）
-    3. 一题一采纳：问题已有 accepted_answer_id → AnswerAlreadyAcceptedError（409，
+    3. 已关闭问题不可采纳 → QuestionClosedError（409，2026-09-29 全冻结裁定）
+    4. 一题一采纳：问题已有 accepted_answer_id → AnswerAlreadyAcceptedError（409，
        重复采纳含"再次采纳同一答案"一律拒绝——计划 L73 定稿）
-    4. 跨聚合双写 Answer.is_accepted + Question.accepted_answer_id：
+    5. 跨聚合双写 Answer.is_accepted + Question.accepted_answer_id：
        同一 AsyncSession 事务内完成，任一侧失败整体回滚（计划 L74 事务边界）；
        请求结束由 get_session 统一 commit。
-    5. 成功发 AnswerAccepted（用例代发，与 VoteCast 同模式）。
+    6. 成功发 AnswerAccepted（用例代发，与 VoteCast 同模式）。
     """
 
     def __init__(
@@ -53,6 +56,8 @@ class AcceptAnswerUseCase:
             raise QuestionNotFoundError("问题不存在")  # 理论不可达（FK 保证），防御性
         if question.author_id != command.actor_id:
             raise NotQuestionAuthorError("仅提问者可采纳答案")
+        if question.status is QuestionStatus.CLOSED:
+            raise QuestionClosedError("已关闭的问题不可采纳")
         if question.accepted_answer_id is not None:
             raise AnswerAlreadyAcceptedError("该问题已有采纳答案")
 

@@ -6,7 +6,17 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.contexts.qa.domain.question import Question, QuestionPublished
+from app.contexts.qa.domain.errors import (
+    AnswerAlreadyAcceptedError,
+    QuestionAlreadyClosedError,
+    QuestionClosedError,
+)
+from app.contexts.qa.domain.question import (
+    Question,
+    QuestionClosed,
+    QuestionPublished,
+    QuestionStatus,
+)
 from app.contexts.qa.domain.value_objects import Body, Title
 
 
@@ -104,3 +114,61 @@ class TestQuestionAsk:
     def test_ask_with_blank_title_raises(self) -> None:
         with pytest.raises(ValueError):
             Question.ask(title_value="   ", body_value="正文", author_id=uuid4())
+
+
+class TestQuestionClose:
+    """关闭态（US-Q08 迭代 5）：状态翻转 + 事件 + 不变式（重复关闭 / 已采纳不可关闭）。"""
+
+    def test_close_sets_status_and_publishes_event(self) -> None:
+        author_id = uuid4()
+        question = Question.ask(title_value="标题", body_value="正文", author_id=author_id)
+
+        question.close()
+
+        assert question.status is QuestionStatus.CLOSED
+        assert len(question.events) == 2
+        closed = question.events[1]
+        assert isinstance(closed, QuestionClosed)
+        assert closed.question_id == question.id
+        assert closed.author_id == author_id
+        assert closed.occurred_at.tzinfo is not None
+
+    def test_close_twice_rejected_and_status_kept(self) -> None:
+        question = Question.ask(title_value="标题", body_value="正文", author_id=uuid4())
+        question.close()
+        with pytest.raises(QuestionAlreadyClosedError):
+            question.close()
+        assert question.status is QuestionStatus.CLOSED
+
+    def test_close_with_accepted_answer_rejected(self) -> None:
+        question = Question.ask(title_value="标题", body_value="正文", author_id=uuid4())
+        question.mark_accepted(uuid4())
+        with pytest.raises(AnswerAlreadyAcceptedError):
+            question.close()
+        assert question.status is QuestionStatus.OPEN
+
+
+class TestQuestionEdit:
+    """编辑（US-Q08 迭代 5，裁定 D6 仅标题+正文）：规范化更新 + 已关闭拒绝 + 半改防护。"""
+
+    def test_edit_updates_and_normalizes(self) -> None:
+        question = Question.ask(title_value="旧标题", body_value="旧正文", author_id=uuid4())
+
+        question.edit_title_body(title_value="  新标题  ", body_value="  新正文  ")
+
+        assert question.title.value == "新标题"
+        assert question.body.value == "新正文"
+
+    def test_edit_closed_question_rejected(self) -> None:
+        question = Question.ask(title_value="标题", body_value="正文", author_id=uuid4())
+        question.close()
+        with pytest.raises(QuestionClosedError):
+            question.edit_title_body(title_value="新标题", body_value="新正文")
+        assert question.title.value == "标题"  # 未半改（全冻结：关闭后不可编辑）
+
+    def test_edit_invalid_body_keeps_old_values(self) -> None:
+        question = Question.ask(title_value="标题", body_value="正文", author_id=uuid4())
+        with pytest.raises(ValueError):
+            question.edit_title_body(title_value="新标题", body_value="   ")
+        assert question.title.value == "标题"  # 值对象先构后赋：失败无半改状态
+        assert question.body.value == "正文"

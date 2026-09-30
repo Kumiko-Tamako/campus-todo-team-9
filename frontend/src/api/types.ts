@@ -29,3 +29,34 @@ export type LoginRequest = {
   password: string
 }
 
+export type CommentResponse = {
+  id: string
+  body: string
+  author_id: string
+  created_at: string
+}
+
+export type AnswerResponse = {
+  id: string
+  body: string
+  author_id: string
+  created_at: string
+  votes: number
+  is_accepted: boolean
+  comments: CommentResponse[]
+}
+
+export type ReputationEntryResponse = {
+  source: string
+  event_id: string
+  delta: number
+  reason: string
+  occurred_at: string
+}
+
+export type ReputationResponse = {
+  user_id: string
+  total: number
+  entries: ReputationEntryResponse[]
+}
+

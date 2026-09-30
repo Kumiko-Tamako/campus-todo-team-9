@@ -21,6 +21,12 @@ export function getApiErrorMessage(error: unknown, fallback = '请求失败，�
       return '提交内容过大，请精简后重试'
     case 404:
       return '请求的内容不存在'
+    case 403:
+      return '你没有权限执行此操作'
+    case 409:
+      return '该操作与当前状态冲突，请刷新后重试'
+    case 503:
+      return '服务暂时不可用，请稍后重试'
     default:
       return error.message === 'Network Error' ? '无法连接服务器，请确认后端服务已启动' : fallback
   }

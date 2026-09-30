@@ -1,4 +1,4 @@
-import { LogoutOutlined, PlusOutlined, ReadOutlined } from '@ant-design/icons'
+import { LogoutOutlined, PlusOutlined, ReadOutlined, TagOutlined, TrophyOutlined } from '@ant-design/icons'
 import { Button, Layout, Menu, Space, Tag, Typography } from 'antd'
 import type { MenuProps } from 'antd'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -11,11 +11,19 @@ export function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, refreshToken, logout } = useAuthStore()
+  const selectedMenuKey = location.pathname.startsWith('/questions')
+    ? '/questions'
+    : location.pathname.startsWith('/tags')
+      ? '/tags'
+      : location.pathname.startsWith('/reputation')
+        ? '/reputation'
+        : '/questions'
 
   const menuItems: MenuProps['items'] = [
     { key: '/questions', icon: <ReadOutlined />, label: <Link to="/questions">问题广场</Link> },
+    { key: '/tags', icon: <TagOutlined />, label: <Link to="/tags">标签目录</Link> },
     ...(user
-      ? [{ key: '/questions/new', icon: <PlusOutlined />, label: <Link to="/questions/new">发布问题</Link> }]
+      ? [{ key: '/questions/new', icon: <PlusOutlined />, label: <Link to="/questions/new">发布问题</Link> }, { key: '/reputation', icon: <TrophyOutlined />, label: <Link to="/reputation">我的声誉</Link> }]
       : []),
   ]
 
@@ -42,7 +50,7 @@ export function AppShell() {
           <Menu
             className="main-menu"
             mode="horizontal"
-            selectedKeys={[location.pathname.startsWith('/questions') ? location.pathname : '/questions']}
+            selectedKeys={[selectedMenuKey]}
             items={menuItems}
           />
           <Space className="header-actions">

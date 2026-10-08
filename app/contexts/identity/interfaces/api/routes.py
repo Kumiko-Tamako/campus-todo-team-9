@@ -9,12 +9,14 @@ from app.contexts.identity.application.login_use_case import LoginUseCase
 from app.contexts.identity.application.ports import ACCESS_TOKEN_TTL, REFRESH_TOKEN_TTL
 from app.contexts.identity.application.register_use_case import RegisterUseCase
 from app.contexts.identity.domain.errors import (
+    AccountLockedError,
     EmailAlreadyExistsError,
     IdentityAlreadyExistsError,
     IdentityDomainError,
     InvalidCredentialsError,
 )
 from app.contexts.identity.domain.user import User
+from app.contexts.identity.infrastructure.login_attempt_guard import RedisLoginAttemptGuard
 from app.contexts.identity.infrastructure.password_hasher import BcryptPasswordHasher
 from app.contexts.identity.infrastructure.refresh_store import RedisRefreshTokenStore
 from app.contexts.identity.infrastructure.repository import SqlAlchemyUserRepository
@@ -31,9 +33,10 @@ from app.shared.engine import get_session
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
-# 模块级单例：令牌服务与刷新存储无请求级状态
+# 模块级单例：令牌服务与刷新存储无请求级状态；守卫亦无状态（Redis 键即状态）
 _token_service = JwtTokenService(get_settings().jwt_secret)
 _refresh_store = RedisRefreshTokenStore()
+_login_attempt_guard = RedisLoginAttemptGuard()
 
 
 def _build_register_use_case(session: AsyncSession) -> RegisterUseCase:
@@ -42,12 +45,13 @@ def _build_register_use_case(session: AsyncSession) -> RegisterUseCase:
 
 
 def _build_login_use_case(session: AsyncSession) -> LoginUseCase:
-    """组装登录用例：仓储 + 哈希器 + 令牌服务 + 刷新存储。"""
+    """组装登录用例：仓储 + 哈希器 + 令牌服务 + 刷新存储 + 失败锁定守卫（US-L04）。"""
     return LoginUseCase(
         SqlAlchemyUserRepository(session),
         BcryptPasswordHasher(),
         _token_service,
         _refresh_store,
+        _login_attempt_guard,
     )
 
 
@@ -109,6 +113,10 @@ async def login(
     except InvalidCredentialsError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)
+        ) from exc
+    except AccountLockedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED, detail=str(exc)
         ) from exc
 
     return TokenPairResponse(

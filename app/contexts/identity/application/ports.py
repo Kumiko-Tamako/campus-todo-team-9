@@ -11,6 +11,10 @@ from app.contexts.identity.domain.user import User
 ACCESS_TOKEN_TTL = timedelta(minutes=15)
 REFRESH_TOKEN_TTL = timedelta(days=7)
 
+# 登录失败锁定参数（US-L04，2026-09-29 裁定：全 identifier 统一计数，5 次/15 分钟窗口）
+LOGIN_FAILURE_THRESHOLD = 5
+LOGIN_LOCKOUT_WINDOW = timedelta(minutes=15)
+
 
 class PasswordHasher(Protocol):
     """密码哈希端口：application 定义，infrastructure 提供 bcrypt 实现。"""
@@ -66,4 +70,24 @@ class RefreshTokenStore(Protocol):
 
     async def revoke(self, jti: UUID) -> None:
         """吊销：删除 refresh:{jti}，幂等。"""
+        ...
+
+
+class LoginAttemptGuard(Protocol):
+    """登录失败计数/锁定守卫端口（US-L04）。
+
+    锁定时瞬态运维状态，非领域不变式（aggregates.md User 不变式未列它）——
+    用 Redis 计数器实现，不动 User 聚合、无迁移（2026-09-29 裁定）。
+    """
+
+    async def check_locked(self, identifier: str) -> bool:
+        """是否已锁定（失败次数 ≥ 阈值）。"""
+        ...
+
+    async def record_failure(self, identifier: str) -> None:
+        """记录一次登录失败（计数 + 刷新窗口 TTL）。"""
+        ...
+
+    async def clear(self, identifier: str) -> None:
+        """登录成功清零失败计数（幂等）。"""
         ...

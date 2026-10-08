@@ -12,14 +12,18 @@ from app.contexts.identity.interfaces.api.deps import CurrentUser
 from app.contexts.qa.application.accept_use_case import AcceptAnswerUseCase
 from app.contexts.qa.application.answer_use_case import PostAnswerUseCase
 from app.contexts.qa.application.ask_question_use_case import AskQuestionUseCase
+from app.contexts.qa.application.close_question_use_case import CloseQuestionUseCase
 from app.contexts.qa.application.commands import (
     AcceptAnswerCommand,
     AskQuestionCommand,
+    CloseQuestionCommand,
     CreateCommentCommand,
+    EditQuestionCommand,
     PostAnswerCommand,
     VoteOnCommand,
 )
 from app.contexts.qa.application.comment_use_case import CreateCommentUseCase
+from app.contexts.qa.application.edit_question_use_case import EditQuestionUseCase
 from app.contexts.qa.application.get_question_use_case import GetQuestionUseCase
 from app.contexts.qa.application.list_questions_use_case import ListQuestionsUseCase
 from app.contexts.qa.application.list_tags_use_case import ListTagsUseCase
@@ -32,6 +36,8 @@ from app.contexts.qa.domain.errors import (
     AnswerAlreadyAcceptedError,
     AnswerNotFoundError,
     NotQuestionAuthorError,
+    QuestionAlreadyClosedError,
+    QuestionClosedError,
     QuestionNotFoundError,
 )
 from app.contexts.qa.domain.repository import QuestionSort
@@ -48,6 +54,7 @@ from app.contexts.qa.interfaces.api.schemas import (
     AskQuestionRequest,
     CommentRequest,
     CommentResponse,
+    EditQuestionRequest,
     PostAnswerRequest,
     QuestionDetailResponse,
     QuestionListItem,
@@ -194,6 +201,72 @@ def _comment_response(comment: Comment) -> CommentResponse:
     )
 
 
+@router.patch(
+    "/{question_id}",
+    response_model=QuestionResponse,
+    summary="编辑问题（仅提问者，US-Q08；仅标题+正文；已关闭 409）",
+)
+async def edit_question(
+    question_id: UUID,
+    payload: EditQuestionRequest,
+    user: CurrentUser,
+    session: AsyncSession = Depends(get_session, scope="function"),
+) -> QuestionResponse:
+    use_case = EditQuestionUseCase(SqlAlchemyQuestionRepository(session))
+    try:
+        question = await use_case.execute(
+            EditQuestionCommand(
+                question_id=question_id,
+                actor_id=user.id,
+                title=payload.title,
+                body=payload.body,
+            )
+        )
+    except QuestionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except NotQuestionAuthorError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except QuestionClosedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except ValueError as exc:  # Title/Body 值对象兜底校验（字符串形 422）
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    return QuestionResponse(
+        id=question.id,
+        title=question.title.value,
+        body=question.body.value,
+        author_id=question.author_id,
+        created_at=question.created_at,
+        # 与 GET 装配序一致（规范名码点序）
+        tags=sorted(t.value for t in question.tags),
+    )
+
+
+@router.post(
+    "/{question_id}/close",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="关闭问题（仅提问者，US-Q08；重复关闭/已采纳 409）",
+)
+async def close_question(
+    question_id: UUID,
+    user: CurrentUser,
+    session: AsyncSession = Depends(get_session, scope="function"),
+) -> Response:
+    use_case = CloseQuestionUseCase(SqlAlchemyQuestionRepository(session))
+    try:
+        await use_case.execute(
+            CloseQuestionCommand(question_id=question_id, actor_id=user.id)
+        )
+    except QuestionNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except NotQuestionAuthorError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except (QuestionAlreadyClosedError, AnswerAlreadyAcceptedError) as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post(
     "/{question_id}/answers",
     response_model=AnswerResponse,
@@ -219,6 +292,8 @@ async def post_answer(
         )
     except QuestionNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except QuestionClosedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:  # Body 值对象兜底校验
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
@@ -263,6 +338,8 @@ async def _vote(
         )
     except (QuestionNotFoundError, AnswerNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except QuestionClosedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except AlreadyVotedError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     publish_vote_event(background_tasks, _event_payload(result.event))
@@ -329,6 +406,8 @@ async def _create_comment(
         )
     except (QuestionNotFoundError, AnswerNotFoundError) as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except QuestionClosedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:  # Body 值对象兜底校验
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
@@ -388,6 +467,8 @@ async def accept_answer(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except NotQuestionAuthorError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except QuestionClosedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except AnswerAlreadyAcceptedError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     publish_accept_event(background_tasks, _event_payload(result.event))

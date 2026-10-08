@@ -24,3 +24,7 @@ class UnknownRoleError(IdentityDomainError):
 
 class InvalidCredentialsError(IdentityDomainError):
     """登录凭证无效：统一 401，不区分"用户不存在/密码错误"（防枚举）。"""
+
+
+class AccountLockedError(IdentityDomainError):
+    """登录失败超限，账号临时锁定（US-L04，路由层转 423 Locked）。"""

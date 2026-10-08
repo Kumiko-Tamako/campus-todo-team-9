@@ -22,4 +22,18 @@ class NotQuestionAuthorError(QADomainError):
 
 
 class AnswerAlreadyAcceptedError(QADomainError):
-    """问题已有采纳答案：一题仅一个最佳答案，重复采纳一律 409（US-V03 幂等）。"""
+    """问题已有采纳答案：一题仅一个最佳答案，重复采纳一律 409（US-V03 幂等）。
+
+    亦作关闭守卫：已采纳答案的问题不可关闭（不变式 5，Q08 × V03，路由层转 409）。
+    """
+
+
+class QuestionAlreadyClosedError(QADomainError):
+    """重复关闭：问题已是关闭态（US-Q08，路由层转 409）。"""
+
+
+class QuestionClosedError(QADomainError):
+    """对已关闭问题的受禁操作：编辑/新增回答/投票/评论/采纳（US-Q08/V02，路由层转 409）。
+
+    关闭为终态（2026-09-29 裁定全冻结）；消息按调用点语义具体化。
+    """

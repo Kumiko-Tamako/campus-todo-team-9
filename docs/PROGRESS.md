@@ -7,9 +7,9 @@
 | 阶段 | 周次 | 主题 | 状态 | 关键验收 |
 |:---|:---|:---|:---|:---|
 | 阶段 0 | W1–W2 | 工程重启 | **完成** | 本地门禁全绿；GitHub Actions 变绿 |
-| 阶段 1 | W3–W5 | Sprint 1 文档 | 进行中（1.1–1.4 产出完成） | 覆盖 Lab 2+3 全部提交物 |
+| 阶段 1 | W3–W5 | Sprint 1 文档 | **完成**（1.1–1.4 产出完成；1.4 事件风暴产出检测复核已于 2026-10-19 完成，含 3 处待裁定注记） | 覆盖 Lab 2+3 全部提交物 |
 | 阶段 2 | W7–W9 | Walking Skeleton | **完成**（2.1–2.8 全部交付并 merge：注册→登录→提问→列表→详情端到端贯通 + openapi.json 契约交前端） | 注册→登录→提问→列表→详情端到端贯通；契约交付；覆盖率 ≥70%（**至今未测量**：无 `pytest-cov`，顺延阶段 3） |
-| 阶段 3 | W11–W13 | 核心特性 | **完成**（分支 1 回答+投票、分支 2 采纳+评论、分支 3 标签 PR #14、分支 4 声誉+Celery PR #15 均已合并；块 5 测试冲刺+Sprint Review 收口；迭代 5（阶段 3-iv）L03/L04/Q08/V02 四故事交付，已全部合入 main：块 5 经 PR #16（898f653），迭代 5 经 2026-10-08 本地 merge 6afc79e） | 覆盖率 70%+（CI 单测口径实测 79.26%；3.5 时代全量含集成记录值 93%，口径不同）；契约测试 `tests/test_contract.py`；4 次 PR 评审记录 `docs/sprint/pr-reviews.md`；评审清单 v1.0；演示脚本 + Retro 纪要；ADR-003/004（≥1 份超额满足） |
+| 阶段 3 | W11–W13 | 核心特性 | **完成**（分支 1 回答+投票、分支 2 采纳+评论、分支 3 标签 PR #14、分支 4 声誉+Celery PR #15 均已合并；块 5 测试冲刺+Sprint Review 收口；迭代 5（阶段 3-iv）L03/L04/Q08/V02 四故事交付，已全部合入 main：块 5 经 PR #16（898f653），迭代 5 经 2026-10-08 本地 merge 6afc79e）；27 故事唯一未交付项 US-Q07 经 2026-10-08 裁定**顺延**（归 discovery 上下文），不列阶段 3 欠账。 | 覆盖率 70%+（CI 单测口径实测 79.26%；3.5 时代全量含集成记录值 93%，口径不同）；契约测试 `tests/test_contract.py`；4 次 PR 评审记录 `docs/sprint/pr-reviews.md`；评审清单 v1.0；演示脚本 + Retro 纪要；ADR-003/004（≥1 份超额满足） |
 | 阶段 4 | W15 | 上线 | 未开始 | 线上 URL 可访问；Lab 8 提交物齐备 |
 
 ## 阶段 0 明细
@@ -33,7 +33,7 @@
 | 1.1 | docs/sprint/story-map.md（6 主干/11 活动/27 故事 + WS 切片） | 完成 |
 | 1.2 | docs/sprint/product-backlog.md（27 故事 / 72 SP / INVEST + 价值成本矩阵） | 完成 |
 | 1.3 | docs/sprint/acceptance-criteria.feature（11 功能域 / 34 场景，Lab 6 全覆盖） | 完成 |
-| 1.4 | docs/domain/context-map.md / aggregates.md / glossary.md（46 术语 / 6 聚合） | 完成（待检测复核） |
+| 1.4 | docs/domain/context-map.md / aggregates.md / glossary.md（46 术语 / 6 聚合） | **完成**（2026-10-19 检测复核：不变式 / 领域事件 / glossary 逐条对到代码通过；3 处文档注记待裁定——course_id 超前描述、Q07 迭代归属未同步顺延、ReputationChanged 定义不派发） |
 
 ## 阶段 2 明细（Walking Skeleton）
 
@@ -42,7 +42,7 @@
 | 2.1 | 注册：User 聚合 + `POST /api/v1/auth/register`（bcrypt 哈希 + 1MiB 请求体上限中间件） | **完成**（PR #1 已 merge；台账 `docs/test/2.1-register.md`，44 测试全绿） |
 | 2.2 | 登录：`POST /api/v1/auth/login`，JWT Access 15min + Refresh 7d 存 Redis（GETDEL 原子轮换、可吊销） | **完成**（PR #2 已 merge） |
 | 2.3 | 认证依赖：`get_current_user` + `require_roles` RBAC（`GET /api/v1/auth/me` 受保护示例） | **完成**（随 2.2 一并交付；台账 `docs/test/2.2-login.md`，67 测试全绿） |
-| 2.4 | 提问：Question 聚合 + `POST /api/v1/questions` | **完成**（`feat/questions` 分支待提 PR #3；台账 `docs/test/2.4-question.md`，132 测试全绿，暴力测试前三路 15/15 + 第四路 20/20 PASS，第四路发现的 3 类 500 缺陷已修复） |
+| 2.4 | 提问：Question 聚合 + `POST /api/v1/questions` | **完成**（已 merge **PR #3**；台账 `docs/test/2.4-question.md`，132 测试全绿，暴力测试前三路 15/15 + 第四路 20/20 PASS，第四路发现的 3 类 500 缺陷已修复） |
 | 2.5 | 列表：`GET /api/v1/questions`（分页，默认按最新排序；投票排序迭代 2 再做） | **完成**（已 merge **PR #10**；台账 `docs/test/2.5-listing.md`，149 测试全绿，七路暴力测试 74 例全 PASS） |
 | 2.6 | 详情：`GET /api/v1/questions/{id}`（标签/答案区迭代 1 恒为空列表，404 不泄露信息） | **完成**（随 2.5 一并交付，PR #10；tiebreaker 全序 + 访客可用 + 404 不泄露） |
 | 2.7 | 迁移纪律：`alembic revision --autogenerate` → 人工审核脚本才 `upgrade` | 2.1 已执行一次（`ab3c0dd6dd38`，含 roles 种子） |
@@ -54,6 +54,8 @@
 
 | 日期 | 变更内容 |
 |:---|:---|
+| 2026-10-19 | **文档状态同步（切 main 主线后复盘）**：工作区切回 main 主线（丢弃 chore/block5 上未提交的 2 处草稿改动）。勘正本文件四处过期表述——2.4 行「`feat/questions` 分支待提 PR #3」→ 已 merge PR #3；1.4 行「待检测复核」→ 检测复核已完成（含 3 处待裁定注记）；里程碑表阶段 1「进行中」→ **完成**；阶段 3 行补 US-Q07 顺延裁定。勘正 [product-backlog.md](sprint/product-backlog.md)：迭代 5 交付状态「工作区未提交」→ 已于 2026-10-08 合入 main；补登 US-Q07 顺延裁定注记。勘正 [3.3 台账](test/3.3-accept-comments.md)——二处「本修复未提交（等用户）」+ 一处「本节修复未提交（等用户）」→ 已合入 main（修复提交 `2731577`；初稿误写 `289a001`，经 `git show --stat` / `git log -S` 复核更正）。同步 [README.md](../README.md) 里程碑表阶段 1 → 完成；阶段 3 行行尾括号失配一并补平。代码零改动。 |
+| 2026-10-08 | **US-Q07 顺延裁定落档（用户裁定）**：27 故事唯一未交付项 US-Q07（按标签/关键词/状态筛选，Should，3 SP）正式裁定**顺延**——依据：[product-backlog.md](sprint/product-backlog.md) 排序原则"容许顺延由后续迭代吸收" + [context-map.md](domain/context-map.md) 将 Q07 归属 discovery 上下文（筛选=读模型雏形，与搜索/推荐同域）；随 discovery 在阶段 4 后实现，不列为阶段 3 欠账。落档：backlog 迭代 4 表下补"交付状态与顺延裁定"注记。代码零改动。 |
 | 2026-10-08 | **合并收口 + 文档状态同步**：迭代 5（86fb459/55a4750）与块 5（c110bd9）全部合入 main——PR #16（898f653）仅含 c110bd9，迭代 5 两提交经本地 merge --no-ff 以 6afc79e 落 main 并推送，origin/main..chore/block5 清空；同步四处状态表述：里程碑表阶段 3 行（"工作区未提交"→已合并）、[product-backlog.md](sprint/product-backlog.md) 追加合并状态注记、[5.1](test/5.1-question-close-edit.md)/[5.2](test/5.2-login-lockout.md) 台账头部补"已合入 main"。README 逐节核实与现状一致（17 paths/19 ops、门禁数字、里程碑表），未改动。另登记两项环境事实：① GitHub 仓库已改名 campus-todo-team-9，旧地址重定向可用，origin 未改（用户裁定保持）；② 全局 git 配置新增 core.sshCommand=C:/Windows/System32/OpenSSH/ssh.exe——修复中文用户目录（HOME=C:\Users\仙人掌）下 git 捆绑 MinGW ssh 编码错乱读不到 known_hosts（Host key verification failed）的问题。 |
 | 2026-09-29 | **迭代 5（阶段 3-iv）交付：块 B US-Q08+US-V02 + 块 C US-L04（工作区 `chore/block5`，未提交，等用户）**——qa：`Question` +`QuestionStatus`/`close()`/`edit_title_body()`/`QuestionClosed` +3 领域错误；application +`close/edit_question_use_case`，answer/vote/comment/accept 四用例全冻结拦截（裁定：关闭=终态，答票/采纳/编辑均禁，评论按 v3#2 随 Q08 落地）；infra `questions.status` 迁移 `46411f564ffa`（down→up 往返 + 存量行回填 open）+ **条件 UPDATE 并发兜底**（自查预修：并发重复关闭多 204 / 关闭×采纳双成功破不变式 5 / 编辑回写 open 三类竞态，均已库级堵死）；interfaces +`PATCH /api/v1/questions/{id}` /`POST .../close`，openapi **17 paths / 19 ops** 过 --check。identity：`LoginAttemptGuard` 端口 + Redis 实现（`login:fail:{id}` INCR+EXPIRE 原子组，5 次/15 分钟滑动窗口，成功清零）+ `AccountLockedError`→423；不动 User 聚合、无迁移。测试：全量 **302 passed**（254→+48）/ CI 单测 183 / coverage 78.10% / domain 96% / ruff 0 / mypy 86 文件 0；含 2 条并发回归（20 并发关闭恰 1×204、关闭×采纳恰一路成功）；台账 [5.1](test/5.1-question-close-edit.md) + [5.2](test/5.2-login-lockout.md) |
 | 2026-09-29 | **迭代 5 第十五路暴力测试（新方法：并发竞态矩阵 + 库/Redis 级终态对账 + 真短 TTL）23/23 PASS**——J 系 11：20 并发关闭恰 1×204/19×409、关闭×投票/回答并发"成功数==库行数"精确对账、关闭×采纳终态互斥（closed 无采纳）、编辑×关闭终态不回退、关闭后七路冻结 409 且库计数零变化；L 系 6：30 并发失败计数==401 数=30、锁定期正确密码 423 无令牌、TTL=900s + 真实过期恢复 200、幽灵账号统一计数；M 系 4：423 文案/204 空体契约。库级终检 `closed_with_accepted=0`、探针零残留；工具 `D:\a_work\bruteforce_47_iter5.py`（仓库外）。另补 Gherkin 11 场景（L04×3/Q08×4/全冻结×4）与契约说明 409/423 行 |

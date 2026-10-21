@@ -2,6 +2,7 @@ import { apiClient } from './client'
 import type { AnswerResponse, CommentResponse } from './types'
 
 export type QuestionSort = 'latest' | 'votes'
+export type QuestionStatus = 'open' | 'closed'
 
 export type QuestionListItem = {
   id: string
@@ -9,6 +10,7 @@ export type QuestionListItem = {
   author_id: string
   created_at: string
   tags: string[]
+  status?: QuestionStatus
 }
 
 export type QuestionListResponse = {
@@ -26,6 +28,7 @@ export type QuestionResponse = {
   author_id: string
   created_at: string
   tags: string[]
+  status?: QuestionStatus
 }
 
 export type QuestionDetailResponse = QuestionResponse & {
@@ -63,6 +66,12 @@ export const questionsApi = {
   },
   create(payload: { title: string; body: string; tags?: string[] }) {
     return apiClient.post<QuestionResponse>('/v1/questions', payload).then(({ data }) => ({ ...data, tags: data.tags ?? [] }))
+  },
+  edit(questionId: string, payload: { title?: string; body?: string }) {
+    return apiClient.patch<QuestionResponse>(`/v1/questions/${questionId}`, payload).then(({ data }) => ({ ...data, tags: data.tags ?? [] }))
+  },
+  close(questionId: string) {
+    return apiClient.post<void>(`/v1/questions/${questionId}/close`)
   },
   postAnswer(questionId: string, payload: { body: string }) {
     return apiClient.post<AnswerResponse>(`/v1/questions/${questionId}/answers`, payload).then(({ data }) => normalizeAnswer(data))

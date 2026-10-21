@@ -16,5 +16,11 @@ describe('getApiErrorMessage', () => {
 
     expect(getApiErrorMessage(error)).toBe('无法连接服务器，请确认后端服务已启动')
   })
+
+  it('explains temporary login lockout responses', () => {
+    const error = { isAxiosError: true, response: { status: 423, data: {} } }
+
+    expect(getApiErrorMessage(error)).toBe('尝试次数过多，账号临时锁定，请稍后再试')
+  })
 })
 

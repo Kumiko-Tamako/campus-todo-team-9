@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const apiMocks = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
+  patch: vi.fn(),
 }))
 
 vi.mock('./client', () => ({ apiClient: apiMocks }))
@@ -99,5 +100,19 @@ describe('questionsApi', () => {
     expect(apiMocks.post).toHaveBeenNthCalledWith(5, '/v1/answers/answer-id/comments', { body: '评论回答' })
     expect(apiMocks.post).toHaveBeenNthCalledWith(6, '/v1/answers/answer-id/accept')
     expect(apiMocks.get).toHaveBeenCalledWith('/v1/tags')
+  })
+
+  it('patches only provided fields and closes a question through the contract paths', async () => {
+    apiMocks.patch.mockResolvedValue({ data: { id: 'question-id', title: '新标题', body: '正文' } })
+    apiMocks.post.mockResolvedValue({ data: undefined })
+
+    await expect(questionsApi.edit('question-id', { title: '新标题' })).resolves.toMatchObject({
+      id: 'question-id',
+      tags: [],
+    })
+    await questionsApi.close('question-id')
+
+    expect(apiMocks.patch).toHaveBeenCalledWith('/v1/questions/question-id', { title: '新标题' })
+    expect(apiMocks.post).toHaveBeenCalledWith('/v1/questions/question-id/close')
   })
 })

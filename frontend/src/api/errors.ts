@@ -25,6 +25,8 @@ export function getApiErrorMessage(error: unknown, fallback = '请求失败，�
       return '你没有权限执行此操作'
     case 409:
       return '该操作与当前状态冲突，请刷新后重试'
+    case 423:
+      return '尝试次数过多，账号临时锁定，请稍后再试'
     case 503:
       return '服务暂时不可用，请稍后重试'
     default:

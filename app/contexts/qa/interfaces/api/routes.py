@@ -110,6 +110,7 @@ async def ask_question(
         created_at=question.created_at,
         # 与 GET 装配序一致（规范名码点序，_tags_for 同口径）
         tags=sorted(t.value for t in question.tags),
+        status=question.status,
     )
 
 
@@ -140,6 +141,7 @@ async def list_questions(
                 author_id=q.author_id,
                 created_at=q.created_at,
                 tags=[t.value for t in q.tags],
+                status=q.status,
             )
             for q in result.items
         ],
@@ -176,6 +178,7 @@ async def get_question(
         created_at=view.question.created_at,
         accepted_answer_id=view.question.accepted_answer_id,
         tags=[t.value for t in view.question.tags],
+        status=view.question.status,
         answers=[
             AnswerResponse(
                 id=a.id,
@@ -240,6 +243,7 @@ async def edit_question(
         created_at=question.created_at,
         # 与 GET 装配序一致（规范名码点序）
         tags=sorted(t.value for t in question.tags),
+        status=question.status,
     )
 
 

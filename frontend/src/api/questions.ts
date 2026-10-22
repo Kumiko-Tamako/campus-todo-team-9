@@ -10,7 +10,7 @@ export type QuestionListItem = {
   author_id: string
   created_at: string
   tags: string[]
-  status?: QuestionStatus
+  status: QuestionStatus
 }
 
 export type QuestionListResponse = {
@@ -28,7 +28,7 @@ export type QuestionResponse = {
   author_id: string
   created_at: string
   tags: string[]
-  status?: QuestionStatus
+  status: QuestionStatus
 }
 
 export type QuestionDetailResponse = QuestionResponse & {

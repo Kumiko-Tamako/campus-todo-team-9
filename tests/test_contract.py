@@ -125,3 +125,14 @@ class TestContractConventions:
         schemes = schema["components"]["securitySchemes"]
         bearer = [s for s in schemes.values() if s.get("scheme") == "bearer"]
         assert bearer, f"securitySchemes 缺少 bearer 方案：{list(schemes)}"
+
+    def test_question_status_is_public_and_enum_constrained(
+        self, schema: dict[str, Any]
+    ) -> None:
+        status_schema = schema["components"]["schemas"]["QuestionStatus"]
+        assert status_schema["enum"] == ["open", "closed"]
+        for name in ("QuestionResponse", "QuestionListItem", "QuestionDetailResponse"):
+            question_schema = schema["components"]["schemas"][name]
+            assert "status" in question_schema["required"]
+            status_ref = question_schema["properties"]["status"]["$ref"]
+            assert status_ref == "#/components/schemas/QuestionStatus"

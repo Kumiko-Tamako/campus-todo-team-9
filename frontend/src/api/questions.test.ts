@@ -17,7 +17,7 @@ describe('questionsApi', () => {
 
   it('requests the paginated question list with the contract path and params', async () => {
     apiMocks.get.mockResolvedValue({ data: {
-      items: [{ id: 'question-id', title: '标题', author_id: 'author-id', created_at: '2026-09-15T00:00:00Z' }],
+      items: [{ id: 'question-id', title: '标题', author_id: 'author-id', created_at: '2026-09-15T00:00:00Z', status: 'closed' }],
       total: 1,
       page: 2,
       page_size: 10,
@@ -25,7 +25,7 @@ describe('questionsApi', () => {
     } })
 
     await expect(questionsApi.list({ page: 2, page_size: 10, sort: 'votes' })).resolves.toMatchObject({
-      items: [{ id: 'question-id', tags: [] }],
+      items: [{ id: 'question-id', tags: [], status: 'closed' }],
     })
 
     expect(apiMocks.get).toHaveBeenCalledWith('/v1/questions', { params: { page: 2, page_size: 10, sort: 'votes' } })
@@ -50,6 +50,7 @@ describe('questionsApi', () => {
         body: '问题正文',
         author_id: 'author-id',
         created_at: '2026-09-15T00:00:00Z',
+        status: 'closed',
         answers: [{ id: 'answer-id', body: '回答', author_id: 'author-id', created_at: '2026-09-15T00:00:00Z', votes: 2, is_accepted: false }],
       },
     })
@@ -59,6 +60,7 @@ describe('questionsApi', () => {
       answers: [{ id: 'answer-id', comments: [] }],
       comments: [],
       accepted_answer_id: null,
+      status: 'closed',
     })
     expect(apiMocks.get).toHaveBeenCalledWith('/v1/questions/question-id')
   })

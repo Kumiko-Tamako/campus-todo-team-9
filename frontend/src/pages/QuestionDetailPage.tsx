@@ -38,7 +38,6 @@ export function QuestionDetailPage() {
   const [commentBody, setCommentBody] = useState('')
   const [answerCommentBodies, setAnswerCommentBodies] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [closedQuestionId, setClosedQuestionId] = useState<string | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['questions', questionId] })
@@ -63,10 +62,7 @@ export function QuestionDetailPage() {
   }
 
   const closeQuestion = async () => {
-    await runAction(async () => {
-      await questionsApi.close(question!.id)
-      setClosedQuestionId(question!.id)
-    })
+    await runAction(() => questionsApi.close(question!.id))
   }
 
   if (isLoading) return <Card loading bordered={false} />
@@ -75,7 +71,7 @@ export function QuestionDetailPage() {
   }
 
   const isQuestionAuthor = user?.id === question.author_id
-  const isClosed = question.status === 'closed' || closedQuestionId === question.id
+  const isClosed = question.status === 'closed'
   return <div className="detail-page">
       <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate('/questions')}>返回问题广场</Button>
       {errorMessage ? <Alert message={errorMessage} type="error" showIcon closable onClose={() => setErrorMessage(null)} /> : null}

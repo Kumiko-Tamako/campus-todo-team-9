@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AskQuestionRequest(BaseModel):
@@ -128,3 +128,22 @@ class QuestionDetailResponse(BaseModel):
     tags: list[str] = Field(default_factory=list)
     answers: list[AnswerResponse] = Field(default_factory=list)
     comments: list[CommentResponse] = Field(default_factory=list)
+
+
+class EditQuestionRequest(BaseModel):
+    """PATCH /api/v1/questions/{id} 请求体（US-Q08；裁定 D6：仅标题+正文，标签不可编辑）。
+
+    PATCH 部分更新：title/body 均可选、至少给一个（模型级校验，缺失即 422 数组形）；
+    给哪个改哪个，缺省侧沿用既有值（用例合并）。字符串形 422 由领域值对象兜底。
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    title: str | None = Field(default=None, min_length=1, max_length=100)
+    body: str | None = Field(default=None, min_length=1, max_length=5000)
+
+    @model_validator(mode="after")
+    def _require_at_least_one_field(self) -> EditQuestionRequest:
+        if self.title is None and self.body is None:
+            raise ValueError("至少提供 title 或 body 之一")
+        return self

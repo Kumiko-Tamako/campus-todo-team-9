@@ -34,6 +34,8 @@ class QuestionModel(Base):
         ForeignKey("answers.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # 关闭态（US-Q08，迭代 5）：open/closed；server_default 让存量行随迁移自动归 open
+    status: Mapped[str] = mapped_column(String(10), nullable=False, server_default="open")
 
 
 class AnswerModel(Base):

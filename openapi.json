@@ -344,6 +344,103 @@
             }
           }
         }
+      },
+      "patch": {
+        "tags": [
+          "questions"
+        ],
+        "summary": "编辑问题（仅提问者，US-Q08；仅标题+正文；已关闭 409）",
+        "operationId": "edit_question_api_v1_questions__question_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditQuestionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/questions/{question_id}/close": {
+      "post": {
+        "tags": [
+          "questions"
+        ],
+        "summary": "关闭问题（仅提问者，US-Q08；重复关闭/已采纳 409）",
+        "operationId": "close_question_api_v1_questions__question_id__close_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/questions/{question_id}/answers": {
@@ -900,6 +997,40 @@
         ],
         "title": "CommentResponse",
         "description": "评论白名单（按时间正序返回，1.3 功能域 9）。"
+      },
+      "EditQuestionRequest": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EditQuestionRequest",
+        "description": "PATCH /api/v1/questions/{id} 请求体（US-Q08；裁定 D6：仅标题+正文，标签不可编辑）。\n\nPATCH 部分更新：title/body 均可选、至少给一个（模型级校验，缺失即 422 数组形）；\n给哪个改哪个，缺省侧沿用既有值（用例合并）。字符串形 422 由领域值对象兜底。"
       },
       "HTTPValidationError": {
         "properties": {

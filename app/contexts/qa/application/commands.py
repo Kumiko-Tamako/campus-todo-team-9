@@ -58,3 +58,25 @@ class CreateCommentCommand:
     target_id: UUID
     body: str
     author_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class CloseQuestionCommand:
+    """关闭问题命令。actor_id 来自认证依赖，须为提问者（US-Q08）。"""
+
+    question_id: UUID
+    actor_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
+class EditQuestionCommand:
+    """编辑问题命令（US-Q08，裁定 D6：仅标题+正文）。
+
+    actor_id 来自认证依赖，须为提问者；title/body 可为 None（PATCH 部分更新，
+    缺省侧沿用既有值；schema 已保证至少给一个）。
+    """
+
+    question_id: UUID
+    actor_id: UUID
+    title: str | None
+    body: str | None

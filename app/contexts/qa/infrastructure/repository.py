@@ -13,8 +13,10 @@ from app.contexts.qa.domain.comment import Comment, CommentTarget
 from app.contexts.qa.domain.errors import (
     AlreadyVotedError,
     AnswerAlreadyAcceptedError,
+    QuestionAlreadyClosedError,
+    QuestionClosedError,
 )
-from app.contexts.qa.domain.question import Question
+from app.contexts.qa.domain.question import Question, QuestionStatus
 from app.contexts.qa.domain.repository import QuestionSort
 from app.contexts.qa.domain.tag import Tag
 from app.contexts.qa.domain.value_objects import Body, Title
@@ -65,6 +67,7 @@ class SqlAlchemyQuestionRepository:
                 author_id=question.author_id,
                 created_at=question.created_at,
                 accepted_answer_id=question.accepted_answer_id,
+                status=question.status.value,
             )
         )
         await self._session.flush()
@@ -75,12 +78,53 @@ class SqlAlchemyQuestionRepository:
         await self._session.flush()
 
     async def update(self, question: Question) -> None:
-        # 采纳双写（US-V03）：只同步可变态 accepted_answer_id，其余字段建后不改（编辑属 Q08）
-        model = await self._session.get(QuestionModel, question.id)
-        if model is None:  # 理论不可达（用例先 get_by_id），防御性保持端口幂等语义
+        """可变态条件更新（迭代 5 起并发安全，参照采纳条件 UPDATE 先例）：
+
+        - 关闭动作（实体 status=closed）：`WHERE status<>'closed' AND accepted_answer_id IS NULL`
+          ——并发重复关闭恰一路 204；并发"先采纳后关闭"竞态被库级挡下（不变式 5 兜底）
+        - 编辑/采纳动作（实体 status=open）：`WHERE status<>'closed'`
+          ——关闭提交后仍到达的写入转 409（全冻结库级兜底，防状态回退/越权写入）
+        rowcount=0 时读最新行转译领域异常（409 语义），不泄露内部细节。
+        """
+        values: dict[str, Any]
+        conditions: list[ColumnElement[bool]] = [
+            QuestionModel.status != QuestionStatus.CLOSED.value
+        ]
+        if question.status is QuestionStatus.CLOSED:
+            # 关闭动作只写状态列：不触碰 title/body/accepted，减少与在途编辑/采纳
+            # 已提交写入互相覆盖的丢失更新面；并加"未采纳"库级守卫（不变式 5）
+            values = {"status": QuestionStatus.CLOSED.value}
+            conditions.append(QuestionModel.accepted_answer_id.is_(None))
+        else:
+            # 编辑/采纳动作（status=open）：同步内容与采纳引用；已关闭行被 WHERE 挡下
+            values = {
+                "title": question.title.value,
+                "body": question.body.value,
+                "accepted_answer_id": question.accepted_answer_id,
+            }
+        stmt = (
+            sql_update(QuestionModel)
+            .where(QuestionModel.id == question.id, *conditions)
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        result = cast(CursorResult[Any], await self._session.execute(stmt))
+        if result.rowcount > 0:
             return
-        model.accepted_answer_id = question.accepted_answer_id
-        await self._session.flush()
+        latest = (
+            await self._session.execute(
+                select(QuestionModel.status, QuestionModel.accepted_answer_id).where(
+                    QuestionModel.id == question.id
+                )
+            )
+        ).first()
+        accepted = latest[1] if latest is not None else None
+        if question.status is QuestionStatus.CLOSED:
+            if accepted is not None:
+                raise AnswerAlreadyAcceptedError("该问题已有采纳答案，不可关闭（并发兜底）")
+            raise QuestionAlreadyClosedError("问题已关闭（并发兜底）")
+        # open 意图写入撞上已关闭行（编辑/采纳与关闭竞态）
+        raise QuestionClosedError("已关闭的问题不可更新（并发兜底）")
 
     async def _tags_for(self, question_ids: list[UUID]) -> dict[UUID, list[Tag]]:
         """批量装配问题标签（列表/详情共用；一次 JOIN 防 N+1）。
@@ -116,6 +160,7 @@ class SqlAlchemyQuestionRepository:
             author_id=model.author_id,
             created_at=model.created_at,
             accepted_answer_id=model.accepted_answer_id,
+            status=QuestionStatus(model.status),
             tags=tags_map[question_id],
         )
 
@@ -155,6 +200,7 @@ class SqlAlchemyQuestionRepository:
                     author_id=model.author_id,
                     created_at=model.created_at,
                     accepted_answer_id=model.accepted_answer_id,
+                    status=QuestionStatus(model.status),
                     tags=tags_map[model.id],
                 )
                 for model in models

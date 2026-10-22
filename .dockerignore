@@ -1,0 +1,15 @@
+.git
+.venv
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.superpowers
+tmp
+frontend/node_modules
+frontend/dist
+frontend/coverage
+frontend/playwright-report
+frontend/test-results
+frontend/.env
+frontend/.env.*
+!frontend/.env.example

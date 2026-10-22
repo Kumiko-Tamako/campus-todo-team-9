@@ -9,11 +9,13 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "oxlint",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.66.0",
     "@ant-design/icons": "^5.6.1",
+    "@tanstack/react-query": "^5.66.0",
     "antd": "^5.24.0",
     "axios": "^1.7.9",
     "react": "^18.3.1",
@@ -22,6 +24,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.55.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.6.1",
@@ -29,6 +32,7 @@
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.4.1",
+    "@vitest/coverage-v8": "3.2.7",
     "jsdom": "^26.0.0",
     "oxlint": "^1.81.0",
     "typescript": "~5.7.3",

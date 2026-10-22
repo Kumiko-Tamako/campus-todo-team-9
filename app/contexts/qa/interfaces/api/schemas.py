@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.contexts.qa.domain.question import QuestionStatus
+
 
 class AskQuestionRequest(BaseModel):
     """POST /api/v1/questions 请求体。
@@ -60,7 +62,7 @@ class CommentResponse(BaseModel):
 
 
 class QuestionResponse(BaseModel):
-    """问题响应白名单：不含任何内部字段。tags 为规范名列表（迭代 4，Q03）。"""
+    """问题响应白名单：不含任何内部字段。tags/status 为公开生命周期字段。"""
 
     id: UUID
     title: str
@@ -68,6 +70,7 @@ class QuestionResponse(BaseModel):
     author_id: UUID
     created_at: datetime
     tags: list[str] = Field(default_factory=list)
+    status: QuestionStatus
 
 
 class QuestionListItem(BaseModel):
@@ -81,6 +84,7 @@ class QuestionListItem(BaseModel):
     author_id: UUID
     created_at: datetime
     tags: list[str] = Field(default_factory=list)
+    status: QuestionStatus
 
 
 class TagListResponse(BaseModel):
@@ -126,6 +130,7 @@ class QuestionDetailResponse(BaseModel):
     created_at: datetime
     accepted_answer_id: UUID | None
     tags: list[str] = Field(default_factory=list)
+    status: QuestionStatus
     answers: list[AnswerResponse] = Field(default_factory=list)
     comments: list[CommentResponse] = Field(default_factory=list)
 

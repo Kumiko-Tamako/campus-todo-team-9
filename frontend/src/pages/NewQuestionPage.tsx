@@ -1,14 +1,16 @@
 import { ArrowLeftOutlined, SendOutlined } from '@ant-design/icons'
-import { Alert, Button, Card, Form, Input, Space, Typography } from 'antd'
+import { Alert, Button, Card, Form, Input, Select, Space, Typography } from 'antd'
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { questionsApi, type QuestionDetail } from '../api/questions'
+import { useTags } from '../hooks/useQuestions'
 import { getApiErrorMessage } from '../api/errors'
 
 type NewQuestionValues = {
   title: string
   body: string
+  tags?: string[]
 }
 
 export function NewQuestionPage() {
@@ -17,14 +19,21 @@ export function NewQuestionPage() {
   const [submitted, setSubmitted] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { data: tagOptions = [], isLoading: tagsLoading } = useTags()
 
   const onFinish = async (values: NewQuestionValues) => {
     setErrorMessage(null)
     setIsSubmitting(true)
     try {
-      const question = await questionsApi.create({ title: values.title, body: values.body })
+      const question = await questionsApi.create({ title: values.title, body: values.body, tags: values.tags ?? [] })
       queryClient.invalidateQueries({ queryKey: ['questions'] })
-      queryClient.setQueryData<QuestionDetail>(['questions', question.id], { ...question, tags: [], answers: [] })
+      queryClient.setQueryData<QuestionDetail>(['questions', question.id], {
+        ...question,
+        accepted_answer_id: null,
+        tags: question.tags ?? [],
+        answers: [],
+        comments: [],
+      })
       setSubmitted(true)
       navigate(`/questions/${question.id}`)
     } catch (error) {
@@ -49,6 +58,16 @@ export function NewQuestionPage() {
           </Form.Item>
           <Form.Item label="问题描述" name="body" rules={[{ required: true, min: 20, message: '请补充至少 20 个字符的描述' }]}>
             <Input.TextArea placeholder="补充背景、已尝试的方法和具体报错..." autoSize={{ minRows: 7, maxRows: 14 }} showCount maxLength={5000} />
+          </Form.Item>
+          <Form.Item label="标签（最多 5 个）" name="tags" extra="使用已有标签或输入新标签，标签只允许中文、英文、数字、空格、短横线和下划线">
+            <Select
+              mode="tags"
+              maxCount={5}
+              maxTagCount="responsive"
+              loading={tagsLoading}
+              options={tagOptions.map((tag) => ({ label: tag, value: tag }))}
+              placeholder="例如：React、数据库"
+            />
           </Form.Item>
           <Space>
             <Button onClick={() => navigate('/questions')}>取消</Button>

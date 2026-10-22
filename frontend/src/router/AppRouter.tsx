@@ -6,6 +6,8 @@ import { NewQuestionPage } from '../pages/NewQuestionPage'
 import { QuestionDetailPage } from '../pages/QuestionDetailPage'
 import { QuestionsPage } from '../pages/QuestionsPage'
 import { RegisterPage } from '../pages/RegisterPage'
+import { ReputationPage } from '../pages/ReputationPage'
+import { TagsPage } from '../pages/TagsPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const accessToken = useAuthStore((state) => state.accessToken)
@@ -21,6 +23,8 @@ export function AppRouter() {
         <Route element={<AppShell />}>
           <Route index element={<Navigate to="/questions" replace />} />
           <Route path="/questions" element={<QuestionsPage />} />
+          <Route path="/tags" element={<TagsPage />} />
+          <Route path="/reputation" element={<ProtectedRoute><ReputationPage /></ProtectedRoute>} />
           <Route path="/questions/:questionId" element={<QuestionDetailPage />} />
           <Route
             path="/questions/new"

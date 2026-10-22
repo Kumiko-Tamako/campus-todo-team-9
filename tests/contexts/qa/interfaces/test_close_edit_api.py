@@ -93,6 +93,11 @@ async def test_close_returns_204_then_reclose_409(client: httpx.AsyncClient) -> 
     detail = await client.get(f"/api/v1/questions/{qid}")
     assert detail.status_code == 200  # 已关闭问题详情仍可读
     assert detail.json()["id"] == qid
+    assert detail.json()["status"] == "closed"
+
+    listing = await client.get("/api/v1/questions", params={"page": 1, "page_size": 100})
+    listed_question = next(item for item in listing.json()["items"] if item["id"] == qid)
+    assert listed_question["status"] == "closed"
 
 
 async def test_close_requires_login_and_valid_id(client: httpx.AsyncClient) -> None:

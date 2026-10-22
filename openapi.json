@@ -1130,6 +1130,9 @@
             "type": "array",
             "title": "Tags"
           },
+          "status": {
+            "$ref": "#/components/schemas/QuestionStatus"
+          },
           "answers": {
             "items": {
               "$ref": "#/components/schemas/AnswerResponse"
@@ -1152,7 +1155,8 @@
           "body",
           "author_id",
           "created_at",
-          "accepted_answer_id"
+          "accepted_answer_id",
+          "status"
         ],
         "title": "QuestionDetailResponse",
         "description": "详情白名单。\n\nanswers 按 D2 定稿排序（已采纳恒最前 > 净票数降序 > 时间正序）；\naccepted_answer_id 顶层返回便于前端直接定位（v3 裁定 #3）；\ncomments 为题评（US-C01，按时间正序）；tags 迭代 1 恒为空列表（分支 3 就位）。"
@@ -1184,6 +1188,9 @@
             },
             "type": "array",
             "title": "Tags"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QuestionStatus"
           }
         },
         "type": "object",
@@ -1191,7 +1198,8 @@
           "id",
           "title",
           "author_id",
-          "created_at"
+          "created_at",
+          "status"
         ],
         "title": "QuestionListItem",
         "description": "列表条目白名单：不含正文（正文最长 5000 字，列表页不需要）与任何内部字段（S-12）。\n\ntags 为迭代 4 新增字段（增量、向后兼容）。"
@@ -1264,6 +1272,9 @@
             },
             "type": "array",
             "title": "Tags"
+          },
+          "status": {
+            "$ref": "#/components/schemas/QuestionStatus"
           }
         },
         "type": "object",
@@ -1272,10 +1283,11 @@
           "title",
           "body",
           "author_id",
-          "created_at"
+          "created_at",
+          "status"
         ],
         "title": "QuestionResponse",
-        "description": "问题响应白名单：不含任何内部字段。tags 为规范名列表（迭代 4，Q03）。"
+        "description": "问题响应白名单：不含任何内部字段。tags/status 为公开生命周期字段。"
       },
       "QuestionSort": {
         "type": "string",
@@ -1285,6 +1297,15 @@
         ],
         "title": "QuestionSort",
         "description": "列表排序口径（US-Q02 + 1.3 L161-164，v3 裁定 #4：迭代 2 实现）。"
+      },
+      "QuestionStatus": {
+        "type": "string",
+        "enum": [
+          "open",
+          "closed"
+        ],
+        "title": "QuestionStatus",
+        "description": "问题生命周期状态（US-Q08）：关闭为终态，backlog 无重开故事（2026-09-29 裁定全冻结）。"
       },
       "RefreshRequest": {
         "properties": {

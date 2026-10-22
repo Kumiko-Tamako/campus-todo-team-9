@@ -77,9 +77,10 @@ async def test_ask_question_returns_201(client: httpx.AsyncClient) -> None:
     )
     assert resp.status_code == 201, resp.text
     body = resp.json()
-    # 白名单字段恰好 6 个（迭代 4 +tags），无任何内部字段
-    assert set(body.keys()) == {"id", "title", "body", "author_id", "created_at", "tags"}
+    # 白名单字段包含公开生命周期状态，无任何内部字段
+    assert set(body.keys()) == {"id", "title", "body", "author_id", "created_at", "tags", "status"}
     assert body["tags"] == []  # 未带标签 → 空列表（迭代 4 白名单第 6 字段）
+    assert body["status"] == "open"
     assert body["author_id"] == user_id  # 作者取自令牌，非请求体
     assert body["title"] == "如何理解数据库第三范式？"
     uuid.UUID(body["id"])  # id 为合法 UUID
@@ -237,8 +238,9 @@ async def test_list_guest_access_whitelist(client: httpx.AsyncClient) -> None:
     assert set(data.keys()) == {"items", "total", "page", "page_size", "total_pages"}
     assert data["page"] == 1 and data["page_size"] == 20
     for item in data["items"]:
-        assert set(item.keys()) == {"id", "title", "author_id", "created_at", "tags"}
+        assert set(item.keys()) == {"id", "title", "author_id", "created_at", "tags", "status"}
         assert isinstance(item["tags"], list)  # 迭代 4 增量字段（向后兼容）
+        assert item["status"] in {"open", "closed"}
     if data["items"]:
         assert data["total_pages"] == -(-data["total"] // data["page_size"])
 
@@ -352,9 +354,10 @@ async def test_detail_returns_full_whitelist_fields(client: httpx.AsyncClient) -
     data = resp.json()
     assert set(data.keys()) == {
         "id", "title", "body", "author_id", "created_at",
-        "accepted_answer_id", "tags", "answers", "comments",
+        "accepted_answer_id", "tags", "status", "answers", "comments",
     }
     assert data["accepted_answer_id"] is None
+    assert data["status"] == "open"
     assert data["title"] == "详情标题"
     assert data["body"] == "详情正文明细"
     assert data["author_id"] == user_id
